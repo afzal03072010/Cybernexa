@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { jsPDF } from "jspdf";
+import * as XLSX from "xlsx";
+import mammoth from "mammoth";
+import * as pdfjsLib from "pdfjs-dist";
 import {
   Bar,
   BarChart,
@@ -17,7 +20,12 @@ import {
 } from "recharts";
 import "./App.css";
 
-const STORAGE_KEY = "cybernexa-state-v2";
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  "pdfjs-dist/build/pdf.worker.min.mjs",
+  import.meta.url
+).toString();
+
+const STORAGE_KEY = "cybernexa-state-v3";
 
 const defaultAssessment = {
   assets: 50,
@@ -34,11 +42,68 @@ const defaultProfile = {
   organizationSize: "Small",
 };
 
+const defaultUploadedFiles = {
+  assets: null,
+  exposedAssets: null,
+  businessImpact: null,
+  vulnerabilities: null,
+  securityControls: null,
+};
+
+const assessmentDocuments = [
+  {
+    field: "assets",
+    label: "Digital Assets",
+    icon: "🖥️",
+    description:
+      "Upload an inventory of laptops, servers, applications, databases, cloud assets, websites, and other digital resources.",
+    examples:
+      "Example: Asset inventory, IT asset register, infrastructure list",
+  },
+  {
+    field: "exposedAssets",
+    label: "Exposed Assets",
+    icon: "🌐",
+    description:
+      "Upload information about internet-facing systems, public IPs, domains, exposed services, or external assets.",
+    examples:
+      "Example: External attack surface report, public asset list",
+  },
+  {
+    field: "businessImpact",
+    label: "Business Impact",
+    icon: "💼",
+    description:
+      "Upload a business impact assessment containing possible financial, operational, customer, or regulatory impact.",
+    examples:
+      "Example: Business impact assessment, continuity report",
+  },
+  {
+    field: "vulnerabilities",
+    label: "Critical Vulnerabilities",
+    icon: "🐛",
+    description:
+      "Upload a vulnerability assessment or security scan containing critical and high-severity vulnerabilities.",
+    examples:
+      "Example: Vulnerability scan, penetration testing report",
+  },
+  {
+    field: "securityControls",
+    label: "Security Controls",
+    icon: "🛡️",
+    description:
+      "Upload information about firewalls, MFA, endpoint protection, backups, policies, monitoring, and other controls.",
+    examples:
+      "Example: Security controls checklist, compliance assessment",
+  },
+];
+
 const investmentCatalog = [
   {
     id: "vulnerability",
     name: "Vulnerability Management",
-    description: "Identify and fix critical security weaknesses.",
+    description:
+      "Identify and fix critical security weaknesses.",
     reduction: 18,
     priority: "High priority",
     icon: "🔍",
@@ -46,7 +111,8 @@ const investmentCatalog = [
   {
     id: "endpoint",
     name: "Endpoint Security",
-    description: "Protect laptops, desktops, and employee devices.",
+    description:
+      "Protect laptops, desktops, and employee devices.",
     reduction: 14,
     priority: "High priority",
     icon: "💻",
@@ -54,7 +120,8 @@ const investmentCatalog = [
   {
     id: "training",
     name: "Employee Training",
-    description: "Reduce phishing and human-error related incidents.",
+    description:
+      "Reduce phishing and human-error related incidents.",
     reduction: 10,
     priority: "Medium priority",
     icon: "🎓",
@@ -62,14 +129,20 @@ const investmentCatalog = [
   {
     id: "network",
     name: "Network Security",
-    description: "Improve network monitoring and access protection.",
+    description:
+      "Improve network monitoring and access protection.",
     reduction: 16,
     priority: "High priority",
     icon: "🌐",
   },
 ];
 
-const chartColors = ["#5ce1e6", "#5d7bff", "#6ce6a5", "#ffb45c"];
+const chartColors = [
+  "#5ce1e6",
+  "#5d7bff",
+  "#6ce6a5",
+  "#ffb45c",
+];
 
 function createDefaultState() {
   return {
@@ -78,13 +151,17 @@ function createDefaultState() {
     budget: 50000,
     history: [],
     profile: { ...defaultProfile },
+    uploadedFiles: { ...defaultUploadedFiles },
+    documentValues: {},
     welcomeSeen: false,
   };
 }
 
 function loadSavedState() {
   try {
-    const savedState = localStorage.getItem(STORAGE_KEY);
+    const savedState = localStorage.getItem(
+      STORAGE_KEY
+    );
 
     if (!savedState) {
       return createDefaultState();
@@ -93,10 +170,13 @@ function loadSavedState() {
     const parsedState = JSON.parse(savedState);
 
     return {
-      assessment: parsedState.assessment || { ...defaultAssessment },
+      assessment:
+        parsedState.assessment ||
+        { ...defaultAssessment },
 
       draftAssessment:
-        parsedState.draftAssessment || { ...defaultAssessment },
+        parsedState.draftAssessment ||
+        { ...defaultAssessment },
 
       budget:
         typeof parsedState.budget === "number"
@@ -112,7 +192,17 @@ function loadSavedState() {
         ...(parsedState.profile || {}),
       },
 
-      welcomeSeen: Boolean(parsedState.welcomeSeen),
+      uploadedFiles: {
+        ...defaultUploadedFiles,
+        ...(parsedState.uploadedFiles || {}),
+      },
+
+      documentValues:
+        parsedState.documentValues || {},
+
+      welcomeSeen: Boolean(
+        parsedState.welcomeSeen
+      ),
     };
   } catch {
     return createDefaultState();
@@ -120,15 +210,28 @@ function loadSavedState() {
 }
 
 function clamp(value, min, max) {
-  return Math.min(Math.max(value, min), max);
+  return Math.min(
+    Math.max(value, min),
+    max
+  );
 }
 
 function calculateRiskScore(assessment) {
-  const assetRisk = assessment.assets * 0.18;
-  const vulnerabilityRisk = assessment.vulnerabilities * 0.30;
-  const exposureRisk = assessment.exposedAssets * 0.24;
-  const controlRisk = (100 - assessment.securityControls) * 0.12;
-  const impactRisk = assessment.businessImpact * 0.16;
+  const assetRisk =
+    assessment.assets * 0.18;
+
+  const vulnerabilityRisk =
+    assessment.vulnerabilities * 0.30;
+
+  const exposureRisk =
+    assessment.exposedAssets * 0.24;
+
+  const controlRisk =
+    (100 - assessment.securityControls) *
+    0.12;
+
+  const impactRisk =
+    assessment.businessImpact * 0.16;
 
   return Math.round(
     clamp(
@@ -184,57 +287,70 @@ function calculateRiskFactors(assessment) {
     {
       name: "Asset Exposure",
       value: assessment.assets,
-      description: "Number and importance of digital assets",
+      description:
+        "Number and importance of digital assets",
       icon: "🖥️",
     },
     {
       name: "Critical Vulnerabilities",
       value: assessment.vulnerabilities,
-      description: "Known weaknesses in systems",
+      description:
+        "Known weaknesses in systems",
       icon: "🐛",
     },
     {
       name: "External Exposure",
       value: assessment.exposedAssets,
-      description: "Assets accessible from outside",
+      description:
+        "Assets accessible from outside",
       icon: "🌍",
     },
     {
       name: "Security Control Gap",
-      value: 100 - assessment.securityControls,
-      description: "Missing or weak security controls",
+      value:
+        100 - assessment.securityControls,
+      description:
+        "Missing or weak security controls",
       icon: "🛡️",
     },
     {
       name: "Business Impact",
       value: assessment.businessImpact,
-      description: "Potential damage to business operations",
+      description:
+        "Potential damage to business operations",
       icon: "📊",
     },
   ];
 }
 
 function optimizeBudget(budget, riskScore) {
-  const totalWeight = investmentCatalog.reduce(
-    (sum, investment) => sum + investment.reduction,
-    0
+  const totalWeight =
+    investmentCatalog.reduce(
+      (sum, investment) =>
+        sum + investment.reduction,
+      0
+    );
+
+  return investmentCatalog.map(
+    (investment) => {
+      const allocation = Math.round(
+        (budget *
+          investment.reduction) /
+          totalWeight
+      );
+
+      const reduction = Math.round(
+        (investment.reduction / 100) *
+          Math.min(riskScore, 80)
+      );
+
+      return {
+        ...investment,
+        allocation,
+        reduction,
+      };
+    }
   );
-
-  return investmentCatalog.map((investment) => {
-    const allocation = Math.round(
-      (budget * investment.reduction) / totalWeight
-    );
-
-    const reduction = Math.round(
-      (investment.reduction / 100) * Math.min(riskScore, 80)
-    );
-
-    return {
-      ...investment,
-      allocation,
-      reduction,
-    };
-  });
 }
 
 function formatMoney(value) {
@@ -245,88 +361,608 @@ function formatMoney(value) {
   }).format(value);
 }
 
+/* --------------------------------------------------
+   DOCUMENT VALUE EXTRACTION
+-------------------------------------------------- */
+
+function extractNumberFromText(
+  text,
+  field
+) {
+  if (!text) {
+    return null;
+  }
+
+  const normalized =
+    text.toLowerCase();
+
+  const patterns = {
+    assets: [
+      /digital\s+assets?\s*[:\-]?\s*(\d+)/i,
+      /total\s+assets?\s*[:\-]?\s*(\d+)/i,
+      /asset\s+count\s*[:\-]?\s*(\d+)/i,
+      /assets?\s*[:\-]?\s*(\d+)/i,
+    ],
+
+    exposedAssets: [
+      /exposed\s+assets?\s*[:\-]?\s*(\d+)/i,
+      /external\s+assets?\s*[:\-]?\s*(\d+)/i,
+      /internet[-\s]?facing\s+assets?\s*[:\-]?\s*(\d+)/i,
+      /exposure\s*[:\-]?\s*(\d+)/i,
+    ],
+
+    businessImpact: [
+      /business\s+impact\s*[:\-]?\s*(\d+)/i,
+      /impact\s+score\s*[:\-]?\s*(\d+)/i,
+      /business\s+impact\s+score\s*[:\-]?\s*(\d+)/i,
+      /impact\s*[:\-]?\s*(\d+)/i,
+    ],
+
+    vulnerabilities: [
+      /critical\s+vulnerabilit(?:y|ies)\s*[:\-]?\s*(\d+)/i,
+      /critical\s+vulnerabilities\s*[:\-]?\s*(\d+)/i,
+      /critical\s+issues?\s*[:\-]?\s*(\d+)/i,
+      /vulnerabilities\s*[:\-]?\s*(\d+)/i,
+    ],
+
+    securityControls: [
+      /security\s+controls?\s*[:\-]?\s*(\d+)/i,
+      /control\s+score\s*[:\-]?\s*(\d+)/i,
+      /security\s+control\s+score\s*[:\-]?\s*(\d+)/i,
+      /controls?\s*[:\-]?\s*(\d+)/i,
+    ],
+  };
+
+  const fieldPatterns =
+    patterns[field] || [];
+
+  for (const pattern of fieldPatterns) {
+    const match =
+      normalized.match(pattern);
+
+    if (match) {
+      const value = Number(
+        match[1]
+      );
+
+      if (
+        Number.isFinite(value)
+      ) {
+        return clamp(
+          value,
+          0,
+          100
+        );
+      }
+    }
+  }
+
+  /*
+   * If the document contains a percentage,
+   * use the first percentage as a fallback.
+   */
+  const percentageMatch =
+    text.match(
+      /(\d{1,3})\s*%/
+    );
+
+  if (percentageMatch) {
+    return clamp(
+      Number(
+        percentageMatch[1]
+      ),
+      0,
+      100
+    );
+  }
+
+  return null;
+}
+
+async function extractPDFText(file) {
+  const arrayBuffer =
+    await file.arrayBuffer();
+
+  const pdf =
+    await pdfjsLib.getDocument({
+      data: arrayBuffer,
+    }).promise;
+
+  let fullText = "";
+
+  for (
+    let pageNumber = 1;
+    pageNumber <= pdf.numPages;
+    pageNumber++
+  ) {
+    const page =
+      await pdf.getPage(
+        pageNumber
+      );
+
+    const content =
+      await page.getTextContent();
+
+    const pageText =
+      content.items
+        .map(
+          (item) =>
+            item.str || ""
+        )
+        .join(" ");
+
+    fullText +=
+      ` ${pageText}`;
+  }
+
+  return fullText;
+}
+
+async function extractWordText(file) {
+  const arrayBuffer =
+    await file.arrayBuffer();
+
+  const result =
+    await mammoth.extractRawText({
+      arrayBuffer,
+    });
+
+  return result.value || "";
+}
+
+async function extractExcelText(file) {
+  const arrayBuffer =
+    await file.arrayBuffer();
+
+  const workbook =
+    XLSX.read(
+      arrayBuffer,
+      {
+        type: "array",
+      }
+    );
+
+  let fullText = "";
+
+  workbook.SheetNames.forEach(
+    (sheetName) => {
+      const sheet =
+        workbook.Sheets[
+          sheetName
+        ];
+
+      const csv =
+        XLSX.utils.sheet_to_csv(
+          sheet
+        );
+
+      fullText +=
+        ` ${csv}`;
+    }
+  );
+
+  return fullText;
+}
+
+async function extractDocumentText(
+  file
+) {
+  const extension =
+    file.name
+      .split(".")
+      .pop()
+      ?.toLowerCase();
+
+  if (extension === "pdf") {
+    return extractPDFText(file);
+  }
+
+  if (
+    extension === "docx"
+  ) {
+    return extractWordText(file);
+  }
+
+  if (
+    extension === "xlsx" ||
+    extension === "xls"
+  ) {
+    return extractExcelText(file);
+  }
+
+  throw new Error(
+    "Unsupported file format."
+  );
+}
+
+/* --------------------------------------------------
+   SAMPLE DOCUMENT CREATION
+-------------------------------------------------- */
+
+function downloadSampleExcel(
+  documentInfo
+) {
+  const sampleValues = {
+    assets: 50,
+    exposedAssets: 5,
+    businessImpact: 50,
+    vulnerabilities: 10,
+    securityControls: 50,
+  };
+
+  const value =
+    sampleValues[
+      documentInfo.field
+    ];
+
+  const worksheet =
+    XLSX.utils.aoa_to_sheet([
+      [
+        "CyberNexa Assessment Template",
+      ],
+      [],
+      [
+        "Assessment Category",
+        documentInfo.label,
+      ],
+      [
+        "Score",
+        value,
+      ],
+      [],
+      [
+        "Instructions",
+      ],
+      [
+        "Enter a value between 0 and 100.",
+      ],
+    ]);
+
+  const workbook =
+    XLSX.utils.book_new();
+
+  XLSX.utils.book_append_sheet(
+    workbook,
+    worksheet,
+    "Assessment"
+  );
+
+  XLSX.writeFile(
+    workbook,
+    `CyberNexa-${documentInfo.field}-sample.xlsx`
+  );
+}
+
+function downloadSampleWord(
+  documentInfo
+) {
+  const sampleValues = {
+    assets: 50,
+    exposedAssets: 5,
+    businessImpact: 50,
+    vulnerabilities: 10,
+    securityControls: 50,
+  };
+
+  const value =
+    sampleValues[
+      documentInfo.field
+    ];
+
+  const content = `
+CyberNexa Assessment Template
+
+Assessment Category: ${documentInfo.label}
+
+${documentInfo.label}: ${value}
+
+Instructions:
+Enter a value between 0 and 100.
+
+Organization:
+Example Organization
+
+Generated for CyberNexa prototype assessment.
+`;
+
+  const blob =
+    new Blob(
+      [content],
+      {
+        type:
+          "application/msword",
+      }
+    );
+
+  const url =
+    URL.createObjectURL(
+      blob
+    );
+
+  const anchor =
+    document.createElement(
+      "a"
+    );
+
+  anchor.href = url;
+
+  anchor.download =
+    `CyberNexa-${documentInfo.field}-sample.doc`;
+
+  anchor.click();
+
+  URL.revokeObjectURL(url);
+}
+
+function downloadSamplePDF(
+  documentInfo
+) {
+  const sampleValues = {
+    assets: 50,
+    exposedAssets: 5,
+    businessImpact: 50,
+    vulnerabilities: 10,
+    securityControls: 50,
+  };
+
+  const value =
+    sampleValues[
+      documentInfo.field
+    ];
+
+  const pdf =
+    new jsPDF();
+
+  pdf.setFont(
+    "helvetica",
+    "bold"
+  );
+
+  pdf.setFontSize(22);
+
+  pdf.text(
+    "CyberNexa",
+    20,
+    25
+  );
+
+  pdf.setFontSize(16);
+
+  pdf.text(
+    "Assessment Template",
+    20,
+    40
+  );
+
+  pdf.setFont(
+    "helvetica",
+    "normal"
+  );
+
+  pdf.setFontSize(12);
+
+  pdf.text(
+    `Assessment Category: ${documentInfo.label}`,
+    20,
+    60
+  );
+
+  pdf.text(
+    `${documentInfo.label}: ${value}`,
+    20,
+    75
+  );
+
+  pdf.text(
+    "Enter a value between 0 and 100.",
+    20,
+    95
+  );
+
+  pdf.text(
+    "Organization: Example Organization",
+    20,
+    115
+  );
+
+  pdf.setFontSize(9);
+
+  pdf.text(
+    "Generated for CyberNexa prototype assessment.",
+    20,
+    135
+  );
+
+  pdf.save(
+    `CyberNexa-${documentInfo.field}-sample.pdf`
+  );
+}
+
+/* --------------------------------------------------
+   APP
+-------------------------------------------------- */
+
 function App() {
-  const savedState = useMemo(() => loadSavedState(), []);
+  const savedState =
+    useMemo(
+      () => loadSavedState(),
+      []
+    );
 
-  const [assessment, setAssessment] = useState(savedState.assessment);
+  const [
+    assessment,
+    setAssessment,
+  ] = useState(
+    savedState.assessment
+  );
 
-  const [draftAssessment, setDraftAssessment] = useState(
+  const [
+    draftAssessment,
+    setDraftAssessment,
+  ] = useState(
     savedState.draftAssessment
   );
 
-  const [budget, setBudget] = useState(savedState.budget);
+  const [
+    budget,
+    setBudget,
+  ] = useState(
+    savedState.budget
+  );
 
-  const [history, setHistory] = useState(savedState.history);
+  const [
+    history,
+    setHistory,
+  ] = useState(
+    savedState.history
+  );
 
-  const [profile, setProfile] = useState(savedState.profile);
+  const [
+    profile,
+    setProfile,
+  ] = useState(
+    savedState.profile
+  );
 
-  const [showWelcome, setShowWelcome] = useState(
+  const [
+    uploadedFiles,
+    setUploadedFiles,
+  ] = useState(
+    savedState.uploadedFiles ||
+      defaultUploadedFiles
+  );
+
+  const [
+    documentValues,
+    setDocumentValues,
+  ] = useState(
+    savedState.documentValues ||
+      {}
+  );
+
+  const [
+    processingField,
+    setProcessingField,
+  ] = useState(null);
+
+  const [
+    documentMessages,
+    setDocumentMessages,
+  ] = useState({});
+
+  const [
+    showWelcome,
+    setShowWelcome,
+  ] = useState(
     !savedState.welcomeSeen
   );
 
-  const [demoMode, setDemoMode] = useState(false);
+  const [
+    demoMode,
+    setDemoMode,
+  ] = useState(false);
 
-  const [statusMessage, setStatusMessage] = useState("");
+  const [
+    statusMessage,
+    setStatusMessage,
+  ] = useState("");
 
-  /*
-   * Sample threat intelligence values.
-   * These were missing from the original App.jsx.
-   */
-  const activeThreats = demoMode ? 12 : 8;
+  const activeThreats =
+    demoMode ? 12 : 8;
 
-  const criticalThreats = demoMode ? 4 : 2;
+  const criticalThreats =
+    demoMode ? 4 : 2;
 
-  const riskScore = useMemo(
-    () => calculateRiskScore(assessment),
-    [assessment]
-  );
+  const riskScore =
+    useMemo(
+      () =>
+        calculateRiskScore(
+          assessment
+        ),
+      [assessment]
+    );
 
-  const riskLevel = useMemo(
-    () => getRiskLevel(riskScore),
-    [riskScore]
-  );
+  const riskLevel =
+    useMemo(
+      () =>
+        getRiskLevel(
+          riskScore
+        ),
+      [riskScore]
+    );
 
-  const riskFactors = useMemo(
-    () => calculateRiskFactors(assessment),
-    [assessment]
-  );
+  const riskFactors =
+    useMemo(
+      () =>
+        calculateRiskFactors(
+          assessment
+        ),
+      [assessment]
+    );
 
-  const recommendations = useMemo(
-    () => optimizeBudget(budget, riskScore),
-    [budget, riskScore]
-  );
+  const recommendations =
+    useMemo(
+      () =>
+        optimizeBudget(
+          budget,
+          riskScore
+        ),
+      [budget, riskScore]
+    );
 
-  const totalRiskReduction = useMemo(
-    () =>
-      recommendations.reduce(
-        (total, recommendation) =>
-          total + recommendation.reduction,
-        0
-      ),
-    [recommendations]
-  );
+  const totalRiskReduction =
+    useMemo(
+      () =>
+        recommendations.reduce(
+          (
+            total,
+            recommendation
+          ) =>
+            total +
+            recommendation.reduction,
+          0
+        ),
+      [recommendations]
+    );
 
-  const projectedScore = clamp(
-    riskScore - Math.round(totalRiskReduction / 2),
-    0,
-    100
-  );
+  const projectedScore =
+    clamp(
+      riskScore -
+        Math.round(
+          totalRiskReduction /
+            2
+        ),
+      0,
+      100
+    );
 
-  const projectedRiskLevel = getRiskLevel(projectedScore);
+  const projectedRiskLevel =
+    getRiskLevel(
+      projectedScore
+    );
 
   const totalRecommendedInvestment =
     recommendations.reduce(
-      (total, recommendation) =>
-        total + recommendation.allocation,
+      (
+        total,
+        recommendation
+      ) =>
+        total +
+        recommendation.allocation,
       0
     );
 
   const criticalVulnerabilities =
     assessment.vulnerabilities;
 
-  const topRecommendations = [...recommendations]
-    .sort((a, b) => b.reduction - a.reduction)
-    .slice(0, 3);
+  const topRecommendations =
+    [...recommendations]
+      .sort(
+        (a, b) =>
+          b.reduction -
+          a.reduction
+      )
+      .slice(0, 3);
 
   const scoreChartData = [
     {
@@ -336,38 +972,62 @@ function App() {
     },
   ];
 
-  const riskFactorChartData = riskFactors.map(
-    (factor) => ({
-      name: factor.name,
-      value: factor.value,
-    })
-  );
+  const riskFactorChartData =
+    riskFactors.map(
+      (factor) => ({
+        name: factor.name,
+        value: factor.value,
+      })
+    );
 
-  const budgetChartData = recommendations.map(
-    (recommendation) => ({
-      name: recommendation.name,
-      value: recommendation.allocation,
-    })
-  );
+  const budgetChartData =
+    recommendations.map(
+      (recommendation) => ({
+        name:
+          recommendation.name,
+        value:
+          recommendation.allocation,
+      })
+    );
 
-  const trendChartData = useMemo(() => {
-    return [...history]
-      .reverse()
-      .map((item, index) => ({
-        name: `Assessment ${index + 1}`,
-        date: item.date,
+  const trendChartData =
+    useMemo(() => {
+      return [...history]
+        .reverse()
+        .map(
+          (
+            item,
+            index
+          ) => ({
+            name: `Assessment ${
+              index + 1
+            }`,
+            date: item.date,
 
-        current: Number.isFinite(Number(item.score))
-          ? Number(item.score)
-          : 0,
+            current:
+              Number.isFinite(
+                Number(
+                  item.score
+                )
+              )
+                ? Number(
+                    item.score
+                  )
+                : 0,
 
-        projected: Number.isFinite(
-          Number(item.projectedScore)
-        )
-          ? Number(item.projectedScore)
-          : 0,
-      }));
-  }, [history]);
+            projected:
+              Number.isFinite(
+                Number(
+                  item.projectedScore
+                )
+              )
+                ? Number(
+                    item.projectedScore
+                  )
+                : 0,
+          })
+        );
+    }, [history]);
 
   useEffect(() => {
     const stateToSave = {
@@ -376,12 +1036,17 @@ function App() {
       budget,
       history,
       profile,
-      welcomeSeen: !showWelcome,
+      uploadedFiles,
+      documentValues,
+      welcomeSeen:
+        !showWelcome,
     };
 
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify(stateToSave)
+      JSON.stringify(
+        stateToSave
+      )
     );
   }, [
     assessment,
@@ -389,56 +1054,272 @@ function App() {
     budget,
     history,
     profile,
+    uploadedFiles,
+    documentValues,
     showWelcome,
   ]);
 
-  function showStatus(message) {
-    setStatusMessage(message);
+  function showStatus(
+    message
+  ) {
+    setStatusMessage(
+      message
+    );
 
-    window.setTimeout(() => {
-      setStatusMessage("");
-    }, 4000);
+    window.setTimeout(
+      () => {
+        setStatusMessage(
+          ""
+        );
+      },
+      4000
+    );
   }
 
-  function updateDraftField(field, value) {
-    setDraftAssessment((previousAssessment) => ({
-      ...previousAssessment,
-      [field]: Number(value),
-    }));
-  }
-
-  function updateProfileField(field, value) {
-    setProfile((previousProfile) => ({
-      ...previousProfile,
-      [field]: value,
-    }));
+  function updateProfileField(
+    field,
+    value
+  ) {
+    setProfile(
+      (previousProfile) => ({
+        ...previousProfile,
+        [field]: value,
+      })
+    );
   }
 
   function startAssessment() {
-    setShowWelcome(false);
+    setShowWelcome(
+      false
+    );
 
-    window.setTimeout(() => {
-      document
-        .getElementById("profile")
-        ?.scrollIntoView({
-          behavior: "smooth",
-        });
-    }, 100);
+    window.setTimeout(
+      () => {
+        document
+          .getElementById(
+            "profile"
+          )
+          ?.scrollIntoView({
+            behavior:
+              "smooth",
+          });
+      },
+      100
+    );
   }
 
   function viewDashboard() {
-    setShowWelcome(false);
+    setShowWelcome(
+      false
+    );
 
-    window.setTimeout(() => {
-      document
-        .getElementById("dashboard")
-        ?.scrollIntoView({
-          behavior: "smooth",
-        });
-    }, 100);
+    window.setTimeout(
+      () => {
+        document
+          .getElementById(
+            "dashboard"
+          )
+          ?.scrollIntoView({
+            behavior:
+              "smooth",
+          });
+      },
+      100
+    );
   }
 
-  function handleAnalyzeRisk(event) {
+  /* --------------------------------------------------
+     DOCUMENT UPLOAD
+  -------------------------------------------------- */
+
+  async function handleDocumentUpload(
+    field,
+    file
+  ) {
+    if (!file) {
+      return;
+    }
+
+    const allowedExtensions = [
+      "pdf",
+      "docx",
+      "doc",
+      "xlsx",
+      "xls",
+    ];
+
+    const extension =
+      file.name
+        .split(".")
+        .pop()
+        ?.toLowerCase();
+
+    if (
+      !allowedExtensions.includes(
+        extension
+      )
+    ) {
+      setDocumentMessages(
+        (previous) => ({
+          ...previous,
+          [field]:
+            "Please upload PDF, Word, or Excel files.",
+        })
+      );
+
+      return;
+    }
+
+    setProcessingField(
+      field
+    );
+
+    setDocumentMessages(
+      (previous) => ({
+        ...previous,
+        [field]:
+          "Reading document...",
+      })
+    );
+
+    try {
+      let text = "";
+
+      /*
+       * Old .doc files cannot be reliably
+       * parsed in-browser using Mammoth.
+       * We still allow the file, but tell
+       * the user to use .docx.
+       */
+      if (extension === "doc") {
+        throw new Error(
+          "Old .doc files are not supported for automatic extraction. Please use .docx, PDF, or Excel."
+        );
+      }
+
+      text =
+        await extractDocumentText(
+          file
+        );
+
+      const extractedValue =
+        extractNumberFromText(
+          text,
+          field
+        );
+
+      setUploadedFiles(
+        (previous) => ({
+          ...previous,
+          [field]: {
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            uploadedAt:
+              new Date().toLocaleString(
+                "en-IN"
+              ),
+          },
+        })
+      );
+
+      if (
+        extractedValue !==
+        null
+      ) {
+        setDocumentValues(
+          (previous) => ({
+            ...previous,
+            [field]:
+              extractedValue,
+          })
+        );
+
+        setDraftAssessment(
+          (previous) => ({
+            ...previous,
+            [field]:
+              extractedValue,
+          })
+        );
+
+        setDocumentMessages(
+          (previous) => ({
+            ...previous,
+            [field]: `✓ Extracted value: ${extractedValue}/100`,
+          })
+        );
+      } else {
+        setDocumentMessages(
+          (previous) => ({
+            ...previous,
+            [field]:
+              "Document uploaded, but no matching score was detected. Please enter the value manually.",
+          })
+        );
+      }
+
+      showStatus(
+        `${file.name} uploaded successfully.`
+      );
+    } catch (error) {
+      console.error(
+        error
+      );
+
+      setDocumentMessages(
+        (previous) => ({
+          ...previous,
+          [field]:
+            error.message ||
+            "Unable to read this document.",
+        })
+      );
+
+      showStatus(
+        "Document uploaded, but automatic extraction could not be completed."
+      );
+    } finally {
+      setProcessingField(
+        null
+      );
+    }
+  }
+
+  function removeDocument(
+    field
+  ) {
+    setUploadedFiles(
+      (previous) => ({
+        ...previous,
+        [field]: null,
+      })
+    );
+
+    setDocumentValues(
+      (previous) => {
+        const updated = {
+          ...previous,
+        };
+
+        delete updated[field];
+
+        return updated;
+      }
+    );
+
+    setDocumentMessages(
+      (previous) => ({
+        ...previous,
+        [field]:
+          "Document removed. You can upload another file.",
+      })
+    );
+  }
+
+  function handleAnalyzeRisk(
+    event
+  ) {
     event.preventDefault();
 
     setAssessment({
@@ -450,24 +1331,34 @@ function App() {
     );
 
     document
-      .getElementById("dashboard")
+      .getElementById(
+        "dashboard"
+      )
       ?.scrollIntoView({
-        behavior: "smooth",
+        behavior:
+          "smooth",
       });
   }
 
   function saveCurrentAssessment() {
     const historyItem = {
       id: Date.now(),
-      date: new Date().toLocaleString("en-IN"),
+      date: new Date().toLocaleString(
+        "en-IN"
+      ),
       score: riskScore,
-      level: riskLevel.label,
+      level:
+        riskLevel.label,
       budget,
       projectedScore,
     };
 
-    setHistory((previousHistory) =>
-      [historyItem, ...previousHistory].slice(0, 10)
+    setHistory(
+      (previousHistory) =>
+        [
+          historyItem,
+          ...previousHistory,
+        ].slice(0, 10)
     );
 
     showStatus(
@@ -475,20 +1366,27 @@ function App() {
     );
   }
 
-  function deleteHistoryItem(id) {
-    setHistory((previousHistory) =>
-      previousHistory.filter(
-        (item) => item.id !== id
-      )
+  function deleteHistoryItem(
+    id
+  ) {
+    setHistory(
+      (previousHistory) =>
+        previousHistory.filter(
+          (item) =>
+            item.id !== id
+        )
     );
 
-    showStatus("Assessment deleted.");
+    showStatus(
+      "Assessment deleted."
+    );
   }
 
   function clearHistory() {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete all assessment history?"
-    );
+    const confirmed =
+      window.confirm(
+        "Are you sure you want to delete all assessment history?"
+      );
 
     if (confirmed) {
       setHistory([]);
@@ -503,107 +1401,106 @@ function App() {
     const demoProfile = {
       organizationName:
         "NexaTech Solutions",
-
       industry:
         "Information Technology",
-
       employees: "350",
-
-      organizationSize: "Medium",
+      organizationSize:
+        "Medium",
     };
 
     const demoAssessment = {
       assets: 72,
-
       vulnerabilities: 68,
-
       exposedAssets: 58,
-
       securityControls: 42,
-
       businessImpact: 70,
     };
 
-    const demoBudget = 150000;
+    const demoBudget =
+      150000;
 
     const demoHistory = [
       {
         id: 1001,
-
         date:
           "15/08/2026, 10:15:00 am",
-
         score: 76,
-
         level: "Critical",
-
         budget: 75000,
-
         projectedScore: 68,
       },
-
       {
         id: 1002,
-
         date:
           "22/08/2026, 02:30:00 pm",
-
         score: 70,
-
         level: "High",
-
         budget: 100000,
-
         projectedScore: 60,
       },
-
       {
         id: 1003,
-
         date:
           "30/08/2026, 11:45:00 am",
-
         score: 64,
-
         level: "High",
-
         budget: 125000,
-
         projectedScore: 52,
       },
     ];
 
-    setProfile(demoProfile);
+    setProfile(
+      demoProfile
+    );
 
-    setAssessment(demoAssessment);
+    setAssessment(
+      demoAssessment
+    );
 
-    setDraftAssessment(demoAssessment);
+    setDraftAssessment(
+      demoAssessment
+    );
 
-    setBudget(demoBudget);
+    setBudget(
+      demoBudget
+    );
 
-    setHistory(demoHistory);
+    setHistory(
+      demoHistory
+    );
 
-    setDemoMode(true);
+    setDemoMode(
+      true
+    );
 
-    setShowWelcome(false);
+    setShowWelcome(
+      false
+    );
 
     showStatus(
       "Demo Mode loaded — CyberNexa is ready for presentation."
     );
 
-    window.setTimeout(() => {
-      document
-        .getElementById("dashboard")
-        ?.scrollIntoView({
-          behavior: "smooth",
-        });
-    }, 150);
+    window.setTimeout(
+      () => {
+        document
+          .getElementById(
+            "dashboard"
+          )
+          ?.scrollIntoView({
+            behavior:
+              "smooth",
+          });
+      },
+      150
+    );
   }
 
   function resetApplication() {
-    const confirmed = window.confirm(
-      "Are you sure you want to reset all CyberNexa data?"
-    );
+    const confirmed =
+      window.confirm(
+        "Are you sure you want to reset all CyberNexa data?"
+      );
 
     if (!confirmed) {
       return;
@@ -632,9 +1529,21 @@ function App() {
       freshState.profile
     );
 
-    setDemoMode(false);
+    setUploadedFiles(
+      freshState.uploadedFiles
+    );
 
-    setShowWelcome(true);
+    setDocumentValues(
+      freshState.documentValues
+    );
+
+    setDemoMode(
+      false
+    );
+
+    setShowWelcome(
+      true
+    );
 
     localStorage.removeItem(
       STORAGE_KEY
@@ -645,18 +1554,30 @@ function App() {
     );
   }
 
-  function scrollToSection(sectionId) {
-    setShowWelcome(false);
+  function scrollToSection(
+    sectionId
+  ) {
+    setShowWelcome(
+      false
+    );
 
     document
-      .getElementById(sectionId)
+      .getElementById(
+        sectionId
+      )
       ?.scrollIntoView({
-        behavior: "smooth",
+        behavior:
+          "smooth",
       });
   }
 
+  /* --------------------------------------------------
+     PDF REPORT
+  -------------------------------------------------- */
+
   function generatePDFReport() {
-    const pdf = new jsPDF();
+    const pdf =
+      new jsPDF();
 
     const pageWidth =
       pdf.internal.pageSize.getWidth();
@@ -664,25 +1585,42 @@ function App() {
     const pageHeight =
       pdf.internal.pageSize.getHeight();
 
-    const reportId = `CNX-${Date.now()
-      .toString()
-      .slice(-8)}`;
+    const reportId =
+      `CNX-${Date.now()
+        .toString()
+        .slice(-8)}`;
 
     let y = 20;
+
+    function checkPageSpace(
+      requiredSpace = 25
+    ) {
+      if (
+        y + requiredSpace >
+        pageHeight - 25
+      ) {
+        pdf.addPage();
+
+        y = 22;
+      }
+    }
 
     function addText(
       text,
       x,
       size = 11,
       style = "normal",
-      maxWidth = pageWidth - 40
+      maxWidth =
+        pageWidth - 40
     ) {
       pdf.setFont(
         "helvetica",
         style
       );
 
-      pdf.setFontSize(size);
+      pdf.setFontSize(
+        size
+      );
 
       const lines =
         pdf.splitTextToSize(
@@ -691,7 +1629,9 @@ function App() {
         );
 
       checkPageSpace(
-        lines.length * (size * 0.55) + 8
+        lines.length *
+          (size * 0.55) +
+          8
       );
 
       pdf.text(
@@ -706,8 +1646,12 @@ function App() {
         5;
     }
 
-    function addSectionTitle(title) {
-      checkPageSpace(30);
+    function addSectionTitle(
+      title
+    ) {
+      checkPageSpace(
+        30
+      );
 
       y += 5;
 
@@ -716,7 +1660,9 @@ function App() {
         "bold"
       );
 
-      pdf.setFontSize(14);
+      pdf.setFontSize(
+        14
+      );
 
       pdf.setTextColor(
         30,
@@ -737,19 +1683,6 @@ function App() {
       );
 
       y += 10;
-    }
-
-    function checkPageSpace(
-      requiredSpace = 25
-    ) {
-      if (
-        y + requiredSpace >
-        pageHeight - 25
-      ) {
-        pdf.addPage();
-
-        y = 22;
-      }
     }
 
     function addMetricBox(
@@ -781,7 +1714,9 @@ function App() {
         "bold"
       );
 
-      pdf.setFontSize(8);
+      pdf.setFontSize(
+        8
+      );
 
       pdf.setTextColor(
         90,
@@ -795,7 +1730,9 @@ function App() {
         boxY + 8
       );
 
-      pdf.setFontSize(15);
+      pdf.setFontSize(
+        15
+      );
 
       pdf.setTextColor(
         20,
@@ -816,7 +1753,6 @@ function App() {
       );
     }
 
-    // Header
     pdf.setFillColor(
       7,
       17,
@@ -842,7 +1778,9 @@ function App() {
       "bold"
     );
 
-    pdf.setFontSize(25);
+    pdf.setFontSize(
+      25
+    );
 
     pdf.text(
       "CyberNexa",
@@ -855,7 +1793,9 @@ function App() {
       "normal"
     );
 
-    pdf.setFontSize(10);
+    pdf.setFontSize(
+      10
+    );
 
     pdf.text(
       "CYBER RISK INTELLIGENCE & INVESTMENT OPTIMIZATION",
@@ -892,7 +1832,6 @@ function App() {
       9
     );
 
-    // Organization Profile
     addSectionTitle(
       "Organization Profile"
     );
@@ -935,7 +1874,6 @@ function App() {
 
     y += 75;
 
-    // Executive Summary
     addSectionTitle(
       "Executive Summary"
     );
@@ -992,116 +1930,6 @@ function App() {
       10
     );
 
-    // Risk chart
-    addSectionTitle(
-      "Risk Score Comparison"
-    );
-
-    const chartX = 30;
-
-    const chartY = y;
-
-    const chartWidth = 150;
-
-    const chartHeight = 55;
-
-    pdf.setDrawColor(
-      220,
-      225,
-      232
-    );
-
-    pdf.rect(
-      chartX,
-      chartY,
-      chartWidth,
-      chartHeight
-    );
-
-    pdf.setFillColor(
-      255,
-      180,
-      92
-    );
-
-    const currentHeight =
-      (riskScore / 100) *
-      42;
-
-    pdf.rect(
-      chartX + 35,
-      chartY +
-        48 -
-        currentHeight,
-      25,
-      currentHeight,
-      "F"
-    );
-
-    pdf.setFillColor(
-      92,
-      225,
-      230
-    );
-
-    const projectedHeight =
-      (projectedScore / 100) *
-      42;
-
-    pdf.rect(
-      chartX + 90,
-      chartY +
-        48 -
-        projectedHeight,
-      25,
-      projectedHeight,
-      "F"
-    );
-
-    pdf.setFont(
-      "helvetica",
-      "normal"
-    );
-
-    pdf.setFontSize(8);
-
-    pdf.setTextColor(
-      80,
-      90,
-      105
-    );
-
-    pdf.text(
-      "Current",
-      chartX + 34,
-      chartY + 65
-    );
-
-    pdf.text(
-      "Projected",
-      chartX + 87,
-      chartY + 65
-    );
-
-    pdf.text(
-      `${riskScore}`,
-      chartX + 42,
-      chartY +
-        43 -
-        currentHeight
-    );
-
-    pdf.text(
-      `${projectedScore}`,
-      chartX + 97,
-      chartY +
-        43 -
-        projectedHeight
-    );
-
-    y += 85;
-
-    // Assessment
     addSectionTitle(
       "Organization Assessment"
     );
@@ -1111,22 +1939,18 @@ function App() {
         "Digital Assets",
         assessment.assets,
       ],
-
       [
         "Critical Vulnerabilities",
         assessment.vulnerabilities,
       ],
-
       [
         "Exposed Assets",
         assessment.exposedAssets,
       ],
-
       [
         "Security Controls",
         assessment.securityControls,
       ],
-
       [
         "Business Impact",
         assessment.businessImpact,
@@ -1142,10 +1966,12 @@ function App() {
           "normal"
         );
 
-        pdf.setFontSize(10);
+        pdf.setFontSize(
+          10
+        );
 
         pdf.text(
-          `${label}`,
+          label,
           20,
           y
         );
@@ -1173,21 +1999,81 @@ function App() {
       }
     );
 
-    // Risk factors
     addSectionTitle(
-      "Risk Factor Analysis"
+      "Uploaded Assessment Documents"
     );
 
-    riskFactors.forEach(
-      (factor) => {
-        checkPageSpace(24);
+    assessmentDocuments.forEach(
+      (documentInfo) => {
+        checkPageSpace(
+          20
+        );
+
+        const uploaded =
+          uploadedFiles[
+            documentInfo.field
+          ];
 
         pdf.setFont(
           "helvetica",
           "bold"
         );
 
-        pdf.setFontSize(10);
+        pdf.setFontSize(
+          10
+        );
+
+        pdf.text(
+          documentInfo.label,
+          20,
+          y
+        );
+
+        pdf.setFont(
+          "helvetica",
+          "normal"
+        );
+
+        pdf.setFontSize(
+          8
+        );
+
+        if (uploaded) {
+          pdf.text(
+            `File: ${uploaded.name}`,
+            25,
+            y + 6
+          );
+        } else {
+          pdf.text(
+            "No document uploaded",
+            25,
+            y + 6
+          );
+        }
+
+        y += 16;
+      }
+    );
+
+    addSectionTitle(
+      "Risk Factor Analysis"
+    );
+
+    riskFactors.forEach(
+      (factor) => {
+        checkPageSpace(
+          24
+        );
+
+        pdf.setFont(
+          "helvetica",
+          "bold"
+        );
+
+        pdf.setFontSize(
+          10
+        );
 
         pdf.text(
           `${factor.name}: ${factor.value}%`,
@@ -1200,7 +2086,9 @@ function App() {
           "normal"
         );
 
-        pdf.setFontSize(8);
+        pdf.setFontSize(
+          8
+        );
 
         pdf.setTextColor(
           100,
@@ -1233,21 +2121,26 @@ function App() {
       }
     );
 
-    // Investment allocation
     addSectionTitle(
       "Recommended Security Investments"
     );
 
     recommendations.forEach(
-      (recommendation) => {
-        checkPageSpace(32);
+      (
+        recommendation
+      ) => {
+        checkPageSpace(
+          32
+        );
 
         pdf.setFont(
           "helvetica",
           "bold"
         );
 
-        pdf.setFontSize(10);
+        pdf.setFontSize(
+          10
+        );
 
         pdf.text(
           recommendation.name,
@@ -1260,7 +2153,9 @@ function App() {
           "normal"
         );
 
-        pdf.setFontSize(9);
+        pdf.setFontSize(
+          9
+        );
 
         pdf.text(
           `Allocation: ${formatMoney(
@@ -1280,7 +2175,6 @@ function App() {
       }
     );
 
-    // Priority recommendations
     addSectionTitle(
       "Priority Actions"
     );
@@ -1290,7 +2184,9 @@ function App() {
         recommendation,
         index
       ) => {
-        checkPageSpace(25);
+        checkPageSpace(
+          25
+        );
 
         addText(
           `${index + 1}. ${recommendation.name} — ${recommendation.priority}`,
@@ -1307,18 +2203,14 @@ function App() {
       }
     );
 
-    // Business impact
     addSectionTitle(
       "Business Impact"
     );
 
     const impactPoints = [
       "Reduced potential financial loss from cyber incidents.",
-
       "Improved business continuity during security incidents.",
-
       "Greater customer trust and protection of sensitive information.",
-
       "Better prioritization of cybersecurity investments.",
     ];
 
@@ -1334,7 +2226,6 @@ function App() {
       }
     );
 
-    // Conclusion
     addSectionTitle(
       "Final Conclusion"
     );
@@ -1353,7 +2244,9 @@ function App() {
       10
     );
 
-    checkPageSpace(35);
+    checkPageSpace(
+      35
+    );
 
     y += 10;
 
@@ -1377,7 +2270,9 @@ function App() {
       "italic"
     );
 
-    pdf.setFontSize(8);
+    pdf.setFontSize(
+      8
+    );
 
     pdf.setTextColor(
       100,
@@ -1408,6 +2303,11 @@ function App() {
 
   return (
     <div className="app">
+
+      {/* =========================================
+          WELCOME SCREEN
+      ========================================= */}
+
       {showWelcome && (
         <div className="welcome-screen">
           <div className="welcome-background-grid" />
@@ -1447,14 +2347,18 @@ function App() {
             <div className="welcome-actions">
               <button
                 className="primary-button welcome-primary"
-                onClick={startAssessment}
+                onClick={
+                  startAssessment
+                }
               >
                 🚀 Start Assessment
               </button>
 
               <button
                 className="secondary-button welcome-secondary"
-                onClick={viewDashboard}
+                onClick={
+                  viewDashboard
+                }
               >
                 📊 View Dashboard
               </button>
@@ -1462,7 +2366,9 @@ function App() {
 
             <button
               className="demo-button"
-              onClick={loadDemoMode}
+              onClick={
+                loadDemoMode
+              }
             >
               🎬 Launch Demo Mode
             </button>
@@ -1488,11 +2394,17 @@ function App() {
         </div>
       )}
 
+      {/* =========================================
+          NAVBAR
+      ========================================= */}
+
       <nav className="navbar">
         <button
           className="brand-button"
           onClick={() =>
-            setShowWelcome(true)
+            setShowWelcome(
+              true
+            )
           }
           aria-label="Open CyberNexa welcome screen"
         >
@@ -1510,7 +2422,9 @@ function App() {
         <div className="nav-links">
           <button
             onClick={() =>
-              scrollToSection("profile")
+              scrollToSection(
+                "profile"
+              )
             }
           >
             Profile
@@ -1518,7 +2432,9 @@ function App() {
 
           <button
             onClick={() =>
-              scrollToSection("optimizer")
+              scrollToSection(
+                "optimizer"
+              )
             }
           >
             Optimizer
@@ -1526,7 +2442,9 @@ function App() {
 
           <button
             onClick={() =>
-              scrollToSection("assessment")
+              scrollToSection(
+                "assessment"
+              )
             }
           >
             Assessment
@@ -1534,7 +2452,9 @@ function App() {
 
           <button
             onClick={() =>
-              scrollToSection("dashboard")
+              scrollToSection(
+                "dashboard"
+              )
             }
           >
             Dashboard
@@ -1542,7 +2462,9 @@ function App() {
 
           <button
             onClick={() =>
-              scrollToSection("charts")
+              scrollToSection(
+                "charts"
+              )
             }
           >
             Analytics
@@ -1550,7 +2472,9 @@ function App() {
 
           <button
             onClick={() =>
-              scrollToSection("history")
+              scrollToSection(
+                "history"
+              )
             }
           >
             History
@@ -1558,7 +2482,9 @@ function App() {
 
           <button
             className="nav-demo-button"
-            onClick={loadDemoMode}
+            onClick={
+              loadDemoMode
+            }
           >
             🎬 Demo
           </button>
@@ -1566,9 +2492,14 @@ function App() {
       </nav>
 
       <main>
-        {/* HERO */}
+
+        {/* =========================================
+            HERO
+        ========================================= */}
+
         <section className="hero">
           <div className="hero-content">
+
             <div className="hero-topline">
               <p className="eyebrow">
                 CYBER RISK INTELLIGENCE PLATFORM
@@ -1645,8 +2576,12 @@ function App() {
           </div>
         </section>
 
-        {/* STATS */}
+        {/* =========================================
+            STATS
+        ========================================= */}
+
         <section className="stats-section">
+
           <div className="stat-card">
             <div className="stat-icon">
               🛡️
@@ -1675,7 +2610,9 @@ function App() {
             </span>
 
             <strong>
-              {formatMoney(budget)}
+              {formatMoney(
+                budget
+              )}
             </strong>
 
             <small>
@@ -1719,14 +2656,19 @@ function App() {
               Sample intelligence feed
             </small>
           </div>
+
         </section>
 
-        {/* EXECUTIVE SUMMARY */}
+        {/* =========================================
+            EXECUTIVE SUMMARY
+        ========================================= */}
+
         <section
           className="executive-section"
           id="executive-summary"
         >
           <div className="section-heading">
+
             <p className="eyebrow">
               EXECUTIVE SUMMARY
             </p>
@@ -1740,12 +2682,16 @@ function App() {
               organization's current security posture
               and highest-priority actions.
             </p>
+
           </div>
 
           <div className="executive-grid">
+
             <div className="executive-score-card">
+
               <div className="executive-score-header">
                 <div>
+
                   <span className="card-subtitle">
                     OVERALL RISK
                   </span>
@@ -1753,6 +2699,7 @@ function App() {
                   <h3>
                     {riskScore}/100
                   </h3>
+
                 </div>
 
                 <span
@@ -1763,15 +2710,19 @@ function App() {
               </div>
 
               <div className="executive-progress">
+
                 <div
                   className="executive-progress-fill"
                   style={{
-                    width: `${riskScore}%`,
+                    width:
+                      `${riskScore}%`,
                   }}
                 />
+
               </div>
 
               <div className="executive-score-footer">
+
                 <span>
                   Current
                 </span>
@@ -1779,15 +2730,19 @@ function App() {
                 <strong>
                   → {projectedScore}/100 projected
                 </strong>
+
               </div>
+
             </div>
 
             <div className="executive-metric">
+
               <span>
                 💰
               </span>
 
               <div>
+
                 <small>
                   Recommended Investment
                 </small>
@@ -1797,15 +2752,19 @@ function App() {
                     totalRecommendedInvestment
                   )}
                 </strong>
+
               </div>
+
             </div>
 
             <div className="executive-metric">
+
               <span>
                 🐛
               </span>
 
               <div>
+
                 <small>
                   Critical Vulnerabilities
                 </small>
@@ -1813,15 +2772,19 @@ function App() {
                 <strong>
                   {criticalVulnerabilities}
                 </strong>
+
               </div>
+
             </div>
 
             <div className="executive-metric">
+
               <span>
                 ⚠️
               </span>
 
               <div>
+
                 <small>
                   Active Threats
                 </small>
@@ -1829,13 +2792,19 @@ function App() {
                 <strong>
                   {activeThreats}
                 </strong>
+
               </div>
+
             </div>
+
           </div>
 
           <div className="priority-actions">
+
             <div className="priority-heading">
+
               <div>
+
                 <span className="card-subtitle">
                   TOP 3 RECOMMENDED ACTIONS
                 </span>
@@ -1843,6 +2812,7 @@ function App() {
                 <h3>
                   What should you do first?
                 </h3>
+
               </div>
 
               <button
@@ -1855,9 +2825,11 @@ function App() {
               >
                 View Investment Plan
               </button>
+
             </div>
 
             <div className="priority-list">
+
               {topRecommendations.map(
                 (
                   recommendation,
@@ -1869,6 +2841,7 @@ function App() {
                       recommendation.id
                     }
                   >
+
                     <div className="priority-number">
                       0{index + 1}
                     </div>
@@ -1880,6 +2853,7 @@ function App() {
                     </div>
 
                     <div className="priority-content">
+
                       <strong>
                         {
                           recommendation.name
@@ -1891,6 +2865,7 @@ function App() {
                           recommendation.description
                         }
                       </span>
+
                     </div>
 
                     <div className="priority-reduction">
@@ -1900,19 +2875,28 @@ function App() {
                       }
                       %
                     </div>
+
                   </div>
                 )
               )}
+
             </div>
+
           </div>
+
         </section>
 
-        {/* PROFILE */}
+        {/* =========================================
+            PROFILE
+        ========================================= */}
+
         <section
           className="profile-section"
           id="profile"
         >
+
           <div className="section-heading">
+
             <p className="eyebrow">
               ORGANIZATION PROFILE
             </p>
@@ -1926,11 +2910,15 @@ function App() {
               personalize the CyberNexa dashboard
               and security report.
             </p>
+
           </div>
 
           <div className="profile-card">
+
             <div className="profile-form">
+
               <div className="form-group">
+
                 <label htmlFor="organizationName">
                   Organization name
                 </label>
@@ -1949,9 +2937,11 @@ function App() {
                     )
                   }
                 />
+
               </div>
 
               <div className="form-group">
+
                 <label htmlFor="industry">
                   Industry
                 </label>
@@ -1968,6 +2958,7 @@ function App() {
                     )
                   }
                 >
+
                   <option value="">
                     Select industry
                   </option>
@@ -2003,10 +2994,13 @@ function App() {
                   <option value="Other">
                     Other
                   </option>
+
                 </select>
+
               </div>
 
               <div className="form-group">
+
                 <label htmlFor="employees">
                   Number of employees
                 </label>
@@ -2026,9 +3020,11 @@ function App() {
                     )
                   }
                 />
+
               </div>
 
               <div className="form-group">
+
                 <label htmlFor="organizationSize">
                   Organization size
                 </label>
@@ -2045,6 +3041,7 @@ function App() {
                     )
                   }
                 >
+
                   <option value="Small">
                     Small organization
                   </option>
@@ -2060,11 +3057,15 @@ function App() {
                   <option value="Enterprise">
                     Enterprise organization
                   </option>
+
                 </select>
+
               </div>
+
             </div>
 
             <div className="profile-preview">
+
               <p className="card-subtitle">
                 PROFILE PREVIEW
               </p>
@@ -2083,6 +3084,7 @@ function App() {
               </h3>
 
               <div className="profile-summary-grid">
+
                 <div>
                   <span>
                     Industry
@@ -2116,17 +3118,26 @@ function App() {
                     }
                   </strong>
                 </div>
+
               </div>
+
             </div>
+
           </div>
+
         </section>
 
-        {/* OPTIMIZER */}
+        {/* =========================================
+            OPTIMIZER
+        ========================================= */}
+
         <section
           className="optimizer-section"
           id="optimizer"
         >
+
           <div className="section-heading">
+
             <p className="eyebrow">
               STEP 01
             </p>
@@ -2140,21 +3151,29 @@ function App() {
               CyberNexa will recommend how to distribute
               it across important security areas.
             </p>
+
           </div>
 
           <div className="optimizer-card">
+
             <div className="budget-header">
+
               <div>
+
                 <p className="card-subtitle">
                   AVAILABLE BUDGET
                 </p>
 
                 <h3>
-                  {formatMoney(budget)}
+                  {formatMoney(
+                    budget
+                  )}
                 </h3>
+
               </div>
 
               <div className="projected-score">
+
                 <span>
                   PROJECTED RISK
                 </span>
@@ -2168,7 +3187,9 @@ function App() {
                     projectedRiskLevel.label
                   }
                 </small>
+
               </div>
+
             </div>
 
             <input
@@ -2177,7 +3198,9 @@ function App() {
               min="10000"
               max="500000"
               step="5000"
-              value={budget}
+              value={
+                budget
+              }
               onChange={(event) =>
                 setBudget(
                   Number(
@@ -2188,6 +3211,7 @@ function App() {
             />
 
             <div className="budget-range">
+
               <span>
                 ₹10,000
               </span>
@@ -2195,9 +3219,11 @@ function App() {
               <span>
                 ₹5,00,000
               </span>
+
             </div>
 
             <div className="recommendations">
+
               {recommendations.map(
                 (
                   recommendation
@@ -2208,6 +3234,7 @@ function App() {
                       recommendation.id
                     }
                   >
+
                     <div className="recommendation-icon">
                       {
                         recommendation.icon
@@ -2215,7 +3242,9 @@ function App() {
                     </div>
 
                     <div className="recommendation-content">
+
                       <div>
+
                         <span className="recommendation-priority">
                           {
                             recommendation.priority
@@ -2233,6 +3262,7 @@ function App() {
                             recommendation.description
                           }
                         </p>
+
                       </div>
 
                       <strong className="recommendation-amount">
@@ -2240,9 +3270,11 @@ function App() {
                           recommendation.allocation
                         )}
                       </strong>
+
                     </div>
 
                     <div className="recommendation-footer">
+
                       <span>
                         Estimated risk reduction
                       </span>
@@ -2254,20 +3286,30 @@ function App() {
                         }
                         %
                       </strong>
+
                     </div>
+
                   </div>
                 )
               )}
+
             </div>
+
           </div>
+
         </section>
 
-        {/* ASSESSMENT */}
+        {/* =========================================
+            NEW DOCUMENT ASSESSMENT
+        ========================================= */}
+
         <section
           className="assessment-section"
           id="assessment"
         >
+
           <div className="section-heading">
+
             <p className="eyebrow">
               STEP 02
             </p>
@@ -2277,9 +3319,11 @@ function App() {
             </h2>
 
             <p>
-              Enter approximate values to calculate
-              your organization's cyber risk score.
+              Instead of entering every value manually,
+              upload your organization's PDF, Word, or
+              Excel assessment documents.
             </p>
+
           </div>
 
           <form
@@ -2288,103 +3332,388 @@ function App() {
               handleAnalyzeRisk
             }
           >
-            {[
-              [
-                "assets",
-                "Digital assets",
-                "Number and importance of your digital assets.",
-              ],
 
-              [
-                "vulnerabilities",
-                "Critical vulnerabilities",
-                "Number of serious security weaknesses.",
-              ],
+            <div className="document-upload-intro">
 
-              [
-                "exposedAssets",
-                "Exposed assets",
-                "Assets exposed to external networks.",
-              ],
+              <div>
+                <strong>
+                  📁 Upload your security documents
+                </strong>
 
-              [
-                "securityControls",
-                "Security controls",
-                "Strength of your existing security controls.",
-              ],
+                <p>
+                  CyberNexa will read the uploaded
+                  document and try to identify the
+                  corresponding assessment value.
+                </p>
+              </div>
 
-              [
-                "businessImpact",
-                "Business impact",
-                "Possible effect of a security incident.",
-              ],
-            ].map(
-              (
-                [
-                  field,
-                  label,
-                  description,
-                ]
-              ) => (
-                <div
-                  className="form-group assessment-group"
-                  key={field}
-                >
-                  <label
-                    htmlFor={field}
-                  >
-                    {label}
+              <span>
+                PDF • DOCX • XLSX
+              </span>
 
-                    <span>
-                      {
-                        draftAssessment[
-                          field
-                        ]
+            </div>
+
+            <div className="document-upload-grid">
+
+              {assessmentDocuments.map(
+                (
+                  documentInfo
+                ) => {
+
+                  const uploaded =
+                    uploadedFiles[
+                      documentInfo.field
+                    ];
+
+                  const message =
+                    documentMessages[
+                      documentInfo.field
+                    ];
+
+                  const extracted =
+                    documentValues[
+                      documentInfo.field
+                    ];
+
+                  const isProcessing =
+                    processingField ===
+                    documentInfo.field;
+
+                  return (
+                    <div
+                      className="document-upload-card"
+                      key={
+                        documentInfo.field
                       }
-                    </span>
-                  </label>
+                    >
 
-                  <input
-                    id={field}
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={
-                      draftAssessment[
-                        field
-                      ]
-                    }
-                    onChange={(event) =>
-                      updateDraftField(
-                        field,
-                        event.target.value
-                      )
-                    }
-                  />
+                      <div className="document-card-header">
 
-                  <div className="range-scale">
-                    <span>
-                      Low
-                    </span>
+                        <div className="document-icon">
+                          {
+                            documentInfo.icon
+                          }
+                        </div>
 
-                    <span>
-                      High
-                    </span>
-                  </div>
+                        <div>
 
-                  <small>
-                    {description}
-                  </small>
-                </div>
-              )
-            )}
+                          <h3>
+                            {
+                              documentInfo.label
+                            }
+                          </h3>
+
+                          <span>
+                            Assessment document
+                          </span>
+
+                        </div>
+
+                      </div>
+
+                      <p className="document-description">
+                        {
+                          documentInfo.description
+                        }
+                      </p>
+
+                      <small className="document-example">
+                        {
+                          documentInfo.examples
+                        }
+                      </small>
+
+                      <label
+                        className="document-dropzone"
+                      >
+
+                        <input
+                          type="file"
+                          accept=".pdf,.docx,.doc,.xlsx,.xls"
+                          onChange={(
+                            event
+                          ) => {
+                            const file =
+                              event.target.files?.[0];
+
+                            handleDocumentUpload(
+                              documentInfo.field,
+                              file
+                            );
+
+                            event.target.value =
+                              "";
+                          }}
+                        />
+
+                        <span className="upload-icon">
+                          {isProcessing
+                            ? "⏳"
+                            : "📤"}
+                        </span>
+
+                        <strong>
+                          {isProcessing
+                            ? "Processing document..."
+                            : uploaded
+                            ? "Upload another document"
+                            : "Choose document"}
+                        </strong>
+
+                        <span>
+                          PDF, Word or Excel
+                        </span>
+
+                      </label>
+
+                      {uploaded && (
+                        <div className="uploaded-file-box">
+
+                          <div>
+
+                            <span>
+                              📄
+                            </span>
+
+                            <div>
+
+                              <strong>
+                                {
+                                  uploaded.name
+                                }
+                              </strong>
+
+                              <small>
+                                Uploaded
+                                {
+                                  uploaded.uploadedAt
+                                    ? ` • ${uploaded.uploadedAt}`
+                                    : ""
+                                }
+                              </small>
+
+                            </div>
+
+                          </div>
+
+                          <button
+                            type="button"
+                            className="delete-button"
+                            onClick={() =>
+                              removeDocument(
+                                documentInfo.field
+                              )
+                            }
+                          >
+                            Remove
+                          </button>
+
+                        </div>
+                      )}
+
+                      {extracted !==
+                        undefined && (
+                        <div className="extracted-value-box">
+
+                          <span>
+                            Extracted score
+                          </span>
+
+                          <strong>
+                            {
+                              extracted
+                            }
+                            /100
+                          </strong>
+
+                        </div>
+                      )}
+
+                      {message && (
+                        <div className="document-status">
+                          {
+                            message
+                          }
+                        </div>
+                      )}
+
+                      <div className="manual-score">
+
+                        <label
+                          htmlFor={`manual-${documentInfo.field}`}
+                        >
+                          Final score
+                        </label>
+
+                        <div className="manual-score-row">
+
+                          <input
+                            id={`manual-${documentInfo.field}`}
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={
+                              draftAssessment[
+                                documentInfo.field
+                              ]
+                            }
+                            onChange={(
+                              event
+                            ) =>
+                              setDraftAssessment(
+                                (
+                                  previous
+                                ) => ({
+                                  ...previous,
+                                  [documentInfo.field]:
+                                    Number(
+                                      event
+                                        .target
+                                        .value
+                                    ),
+                                })
+                              )
+                            }
+                          />
+
+                          <strong>
+                            {
+                              draftAssessment[
+                                documentInfo.field
+                              ]
+                            }
+                          </strong>
+
+                        </div>
+
+                        <small>
+                          Adjust manually if the
+                          document does not contain
+                          a detectable score.
+                        </small>
+
+                      </div>
+
+                      <div className="sample-downloads">
+
+                        <span>
+                          Need a sample?
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            downloadSamplePDF(
+                              documentInfo
+                            )
+                          }
+                        >
+                          PDF
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            downloadSampleWord(
+                              documentInfo
+                            )
+                          }
+                        >
+                          Word
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            downloadSampleExcel(
+                              documentInfo
+                            )
+                          }
+                        >
+                          Excel
+                        </button>
+
+                      </div>
+
+                    </div>
+                  );
+                }
+              )}
+
+            </div>
+
+            <div className="assessment-summary">
+
+              <div>
+
+                <span>
+                  Current assessment values
+                </span>
+
+                <strong>
+                  {
+                    Object.keys(
+                      uploadedFiles
+                    ).filter(
+                      (key) =>
+                        uploadedFiles[
+                          key
+                        ]
+                    ).length
+                  }
+                  /5 documents uploaded
+                </strong>
+
+              </div>
+
+              <div className="assessment-summary-values">
+
+                <span>
+                  🖥️ Assets:{" "}
+                  {
+                    draftAssessment.assets
+                  }
+                </span>
+
+                <span>
+                  🐛 Vulnerabilities:{" "}
+                  {
+                    draftAssessment.vulnerabilities
+                  }
+                </span>
+
+                <span>
+                  🌐 Exposure:{" "}
+                  {
+                    draftAssessment.exposedAssets
+                  }
+                </span>
+
+                <span>
+                  🛡️ Controls:{" "}
+                  {
+                    draftAssessment.securityControls
+                  }
+                </span>
+
+                <span>
+                  💼 Impact:{" "}
+                  {
+                    draftAssessment.businessImpact
+                  }
+                </span>
+
+              </div>
+
+            </div>
 
             <div className="form-actions">
+
               <button
                 className="primary-button"
                 type="submit"
               >
-                🔎 Analyze Risk
+                🔎 Analyze Uploaded Assessment
               </button>
 
               <button
@@ -2396,18 +3725,26 @@ function App() {
                   })
                 }
               >
-                Reset Form
+                Reset Scores
               </button>
+
             </div>
+
           </form>
+
         </section>
 
-        {/* DASHBOARD */}
+        {/* =========================================
+            DASHBOARD
+        ========================================= */}
+
         <section
           className="dashboard-section"
           id="dashboard"
         >
+
           <div className="section-heading">
+
             <p className="eyebrow">
               LIVE DASHBOARD
             </p>
@@ -2423,11 +3760,15 @@ function App() {
               contributing factors, investment strategy
               and projected improvement.
             </p>
+
           </div>
 
           <div className="dashboard-grid">
+
             <div className="dashboard-card risk-score-card">
+
               <div className="card-heading">
+
                 <span>
                   Overall risk score
                 </span>
@@ -2437,15 +3778,19 @@ function App() {
                 >
                   {riskLevel.label}
                 </span>
+
               </div>
 
               <div
                 className="risk-circle"
                 style={{
-                  "--score": `${riskScore * 3.6}deg`,
+                  "--score":
+                    `${riskScore * 3.6}deg`,
                 }}
               >
+
                 <div className="risk-circle-inner">
+
                   <strong>
                     {riskScore}
                   </strong>
@@ -2453,7 +3798,9 @@ function App() {
                   <span>
                     out of 100
                   </span>
+
                 </div>
+
               </div>
 
               <p className="risk-description">
@@ -2463,6 +3810,7 @@ function App() {
               </p>
 
               <div className="dashboard-action-buttons">
+
                 <button
                   className="primary-button"
                   onClick={
@@ -2480,21 +3828,29 @@ function App() {
                 >
                   📄 Download Report
                 </button>
+
               </div>
+
             </div>
 
             <div className="dashboard-card">
+
               <div className="card-heading">
+
                 <span>
                   Risk factors
                 </span>
 
                 <span className="card-heading-muted">
-                  {riskFactors.length} indicators
+                  {
+                    riskFactors.length
+                  } indicators
                 </span>
+
               </div>
 
               <div className="risk-factors">
+
                 {riskFactors.map(
                   (factor) => (
                     <div
@@ -2503,13 +3859,19 @@ function App() {
                         factor.name
                       }
                     >
+
                       <div className="risk-factor-header">
+
                         <div className="risk-factor-title">
+
                           <span className="risk-factor-icon">
-                            {factor.icon}
+                            {
+                              factor.icon
+                            }
                           </span>
 
                           <div>
+
                             <strong>
                               {
                                 factor.name
@@ -2521,30 +3883,43 @@ function App() {
                                 factor.description
                               }
                             </small>
+
                           </div>
+
                         </div>
 
                         <span>
-                          {factor.value}%
+                          {
+                            factor.value
+                          }%
                         </span>
+
                       </div>
 
                       <div className="factor-bar">
+
                         <div
                           className="factor-bar-fill"
                           style={{
-                            width: `${factor.value}%`,
+                            width:
+                              `${factor.value}%`,
                           }}
                         />
+
                       </div>
+
                     </div>
                   )
                 )}
+
               </div>
+
             </div>
+
           </div>
 
           <div className="dashboard-summary-row">
+
             <div className="dashboard-mini-card">
               <span>
                 Current Score
@@ -2609,15 +3984,22 @@ function App() {
                 Optimized allocation
               </small>
             </div>
+
           </div>
+
         </section>
 
-        {/* ANALYTICS */}
+        {/* =========================================
+            ANALYTICS
+        ========================================= */}
+
         <section
           className="charts-section"
           id="charts"
         >
+
           <div className="section-heading">
+
             <p className="eyebrow">
               VISUAL ANALYTICS
             </p>
@@ -2631,27 +4013,34 @@ function App() {
               assessment values and recommended
               investment plan.
             </p>
+
           </div>
 
           <div className="charts-grid">
-            {/* CURRENT VS PROJECTED */}
+
             <div className="chart-card">
+
               <div className="card-heading">
+
                 <span>
                   Current vs projected risk
                 </span>
+
               </div>
 
               <div className="chart-wrapper">
+
                 <ResponsiveContainer
                   width="100%"
                   height={300}
                 >
+
                   <BarChart
                     data={
                       scoreChartData
                     }
                   >
+
                     <CartesianGrid
                       strokeDasharray="3 3"
                       stroke="rgba(255,255,255,0.1)"
@@ -2708,29 +4097,37 @@ function App() {
                         0,
                       ]}
                     />
+
                   </BarChart>
+
                 </ResponsiveContainer>
+
               </div>
 
               <p className="chart-note">
                 Your projected score is based on the
                 recommended security investments.
               </p>
+
             </div>
 
-            {/* RISK FACTORS */}
             <div className="chart-card">
+
               <div className="card-heading">
+
                 <span>
                   Risk-factor comparison
                 </span>
+
               </div>
 
               <div className="chart-wrapper">
+
                 <ResponsiveContainer
                   width="100%"
                   height={340}
                 >
+
                   <BarChart
                     data={
                       riskFactorChartData
@@ -2743,6 +4140,7 @@ function App() {
                       bottom: 5,
                     }}
                   >
+
                     <CartesianGrid
                       strokeDasharray="3 3"
                       stroke="rgba(255,255,255,0.1)"
@@ -2791,31 +4189,41 @@ function App() {
                         0,
                       ]}
                     />
+
                   </BarChart>
+
                 </ResponsiveContainer>
+
               </div>
 
               <p className="chart-note">
                 Higher values indicate areas that need
                 more attention.
               </p>
+
             </div>
 
-            {/* BUDGET */}
             <div className="chart-card chart-card-wide">
+
               <div className="card-heading">
+
                 <span>
                   Recommended budget allocation
                 </span>
+
               </div>
 
               <div className="pie-chart-layout">
+
                 <div className="chart-wrapper">
+
                   <ResponsiveContainer
                     width="100%"
                     height={320}
                   >
+
                     <PieChart>
+
                       <Pie
                         data={
                           budgetChartData
@@ -2829,6 +4237,7 @@ function App() {
                         paddingAngle={4}
                         labelLine={false}
                       >
+
                         {budgetChartData.map(
                           (
                             entry,
@@ -2845,6 +4254,7 @@ function App() {
                             />
                           )
                         )}
+
                       </Pie>
 
                       <Tooltip
@@ -2868,11 +4278,15 @@ function App() {
                       />
 
                       <Legend />
+
                     </PieChart>
+
                   </ResponsiveContainer>
+
                 </div>
 
                 <div className="allocation-summary">
+
                   <span className="card-subtitle">
                     TOTAL BUDGET
                   </span>
@@ -2884,6 +4298,7 @@ function App() {
                   </strong>
 
                   <div className="allocation-list">
+
                     {recommendations.map(
                       (
                         recommendation,
@@ -2895,7 +4310,9 @@ function App() {
                             recommendation.id
                           }
                         >
+
                           <span>
+
                             <i
                               style={{
                                 background:
@@ -2909,6 +4326,7 @@ function App() {
                             {
                               recommendation.name
                             }
+
                           </span>
 
                           <strong>
@@ -2916,18 +4334,25 @@ function App() {
                               recommendation.allocation
                             )}
                           </strong>
+
                         </div>
                       )
                     )}
+
                   </div>
+
                 </div>
+
               </div>
+
             </div>
 
-            {/* TREND */}
             <div className="chart-card chart-card-wide trend-chart-card">
+
               <div className="card-heading">
+
                 <div>
+
                   <span>
                     Risk trend history
                   </span>
@@ -2937,12 +4362,15 @@ function App() {
                     risk changes across saved
                     assessments.
                   </small>
+
                 </div>
+
               </div>
 
               {trendChartData.length <
               2 ? (
                 <div className="trend-empty-state">
+
                   <div className="trend-empty-icon">
                     📈
                   </div>
@@ -2968,14 +4396,17 @@ function App() {
                   >
                     Go to Dashboard
                   </button>
+
                 </div>
               ) : (
                 <>
                   <div className="chart-wrapper trend-chart-wrapper">
+
                     <ResponsiveContainer
                       width="100%"
                       height={360}
                     >
+
                       <LineChart
                         data={
                           trendChartData
@@ -2987,6 +4418,7 @@ function App() {
                           bottom: 10,
                         }}
                       >
+
                         <CartesianGrid
                           strokeDasharray="3 3"
                           stroke="rgba(255,255,255,0.1)"
@@ -3065,8 +4497,11 @@ function App() {
                             r: 7,
                           }}
                         />
+
                       </LineChart>
+
                     </ResponsiveContainer>
+
                   </div>
 
                   <p className="chart-note">
@@ -3075,16 +4510,24 @@ function App() {
                   </p>
                 </>
               )}
+
             </div>
+
           </div>
+
         </section>
 
-        {/* HISTORY */}
+        {/* =========================================
+            HISTORY
+        ========================================= */}
+
         <section
           className="history-section"
           id="history"
         >
+
           <div className="section-heading">
+
             <p className="eyebrow">
               ASSESSMENT HISTORY
             </p>
@@ -3097,11 +4540,14 @@ function App() {
               Your assessment records are stored
               locally in this browser.
             </p>
+
           </div>
 
           <div className="history-card">
+
             {history.length === 0 ? (
               <div className="empty-history">
+
                 <div className="empty-history-icon">
                   📋
                 </div>
@@ -3125,10 +4571,13 @@ function App() {
                 >
                   Create Assessment
                 </button>
+
               </div>
             ) : (
               <>
+
                 <div className="history-header">
+
                   <span>
                     {history.length} saved
                     assessment
@@ -3145,17 +4594,24 @@ function App() {
                   >
                     Clear History
                   </button>
+
                 </div>
 
                 <div className="history-list">
+
                   {history.map(
                     (item) => (
                       <div
                         className="history-item"
-                        key={item.id}
+                        key={
+                          item.id
+                        }
                       >
+
                         <div className="history-main">
+
                           <div className="history-title">
+
                             <strong>
                               {item.level} Risk
                             </strong>
@@ -3163,9 +4619,11 @@ function App() {
                             <span>
                               {item.date}
                             </span>
+
                           </div>
 
                           <div className="history-score">
+
                             <strong>
                               {item.score}/100
                             </strong>
@@ -3177,10 +4635,13 @@ function App() {
                               }
                               /100
                             </span>
+
                           </div>
+
                         </div>
 
                         <div className="history-meta">
+
                           <span>
                             Budget:{" "}
                             {formatMoney(
@@ -3198,22 +4659,33 @@ function App() {
                           >
                             Delete
                           </button>
+
                         </div>
+
                       </div>
                     )
                   )}
+
                 </div>
+
               </>
             )}
+
           </div>
+
         </section>
 
-        {/* BUSINESS IMPACT */}
+        {/* =========================================
+            BUSINESS IMPACT
+        ========================================= */}
+
         <section
           className="impact-section"
           id="impact"
         >
+
           <div className="section-heading">
+
             <p className="eyebrow">
               BUSINESS IMPACT
             </p>
@@ -3227,10 +4699,13 @@ function App() {
               continuity, customer trust, and financial
               performance.
             </p>
+
           </div>
 
           <div className="impact-grid">
+
             <div className="impact-card">
+
               <span className="impact-icon">
                 💰
               </span>
@@ -3248,9 +4723,11 @@ function App() {
                 the potential cost of incidents and
                 operational disruption.
               </p>
+
             </div>
 
             <div className="impact-card">
+
               <span className="impact-icon">
                 🔄
               </span>
@@ -3268,9 +4745,11 @@ function App() {
                 continue operating during cyber
                 incidents.
               </p>
+
             </div>
 
             <div className="impact-card">
+
               <span className="impact-icon">
                 🤝
               </span>
@@ -3288,15 +4767,25 @@ function App() {
                 supports customer confidence and
                 protects sensitive information.
               </p>
+
             </div>
+
           </div>
+
         </section>
+
       </main>
 
-      {/* FOOTER */}
+      {/* =========================================
+          FOOTER
+      ========================================= */}
+
       <footer className="footer">
+
         <div>
+
           <div className="logo">
+
             <span className="logo-symbol">
               C
             </span>
@@ -3304,6 +4793,7 @@ function App() {
             <span>
               CyberNexa
             </span>
+
           </div>
 
           <p>
@@ -3315,9 +4805,11 @@ function App() {
             Prototype • Frontend-only • Sample threat
             intelligence
           </span>
+
         </div>
 
         <div className="footer-actions">
+
           <button
             onClick={() =>
               scrollToSection(
@@ -3335,7 +4827,9 @@ function App() {
           >
             Reset Application
           </button>
+
         </div>
+
       </footer>
 
       {statusMessage && (
@@ -3343,13 +4837,16 @@ function App() {
           className="status-message"
           role="status"
         >
+
           <span className="status-dot">
             ✓
           </span>
 
           {statusMessage}
+
         </div>
       )}
+
     </div>
   );
 }
