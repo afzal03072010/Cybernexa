@@ -23,7 +23,6 @@ const defaultAssessment = {
   assets: 50,
   vulnerabilities: 10,
   exposedAssets: 5,
-  threatActivity: 50,
   securityControls: 50,
   businessImpact: 50,
 };
@@ -70,63 +69,6 @@ const investmentCatalog = [
   },
 ];
 
-const threatData = [
-  {
-    id: 1,
-    name: "Phishing Campaign",
-    severity: "High",
-    industry: "All Industries",
-    action: "Enable phishing protection and conduct employee awareness training.",
-    status: "Active",
-    icon: "🎣",
-  },
-  {
-    id: 2,
-    name: "Ransomware Activity",
-    severity: "Critical",
-    industry: "Healthcare & Manufacturing",
-    action: "Verify offline backups and strengthen endpoint protection.",
-    status: "Active",
-    icon: "🔐",
-  },
-  {
-    id: 3,
-    name: "Credential Theft",
-    severity: "High",
-    industry: "Finance & Technology",
-    action: "Enable MFA and review privileged account access.",
-    status: "Active",
-    icon: "🔑",
-  },
-  {
-    id: 4,
-    name: "DDoS Campaign",
-    severity: "Medium",
-    industry: "Technology & Retail",
-    action: "Review traffic monitoring and network protection controls.",
-    status: "Active",
-    icon: "🌐",
-  },
-  {
-    id: 5,
-    name: "Malicious USB Activity",
-    severity: "Medium",
-    industry: "Education & Manufacturing",
-    action: "Restrict removable media and improve endpoint monitoring.",
-    status: "Resolved",
-    icon: "💾",
-  },
-  {
-    id: 6,
-    name: "Web Application Attack",
-    severity: "Critical",
-    industry: "Technology & Finance",
-    action: "Patch exposed applications and strengthen application security.",
-    status: "Resolved",
-    icon: "⚠️",
-  },
-];
-
 const chartColors = ["#5ce1e6", "#5d7bff", "#6ce6a5", "#ffb45c"];
 
 function createDefaultState() {
@@ -152,19 +94,24 @@ function loadSavedState() {
 
     return {
       assessment: parsedState.assessment || { ...defaultAssessment },
+
       draftAssessment:
         parsedState.draftAssessment || { ...defaultAssessment },
+
       budget:
         typeof parsedState.budget === "number"
           ? parsedState.budget
           : 50000,
+
       history: Array.isArray(parsedState.history)
         ? parsedState.history
         : [],
+
       profile: {
         ...defaultProfile,
         ...(parsedState.profile || {}),
       },
+
       welcomeSeen: Boolean(parsedState.welcomeSeen),
     };
   } catch {
@@ -177,19 +124,17 @@ function clamp(value, min, max) {
 }
 
 function calculateRiskScore(assessment) {
-  const assetRisk = assessment.assets * 0.15;
-  const vulnerabilityRisk = assessment.vulnerabilities * 0.25;
-  const exposureRisk = assessment.exposedAssets * 0.2;
-  const threatRisk = assessment.threatActivity * 0.15;
-  const controlRisk = (100 - assessment.securityControls) * 0.1;
-  const impactRisk = assessment.businessImpact * 0.15;
+  const assetRisk = assessment.assets * 0.18;
+  const vulnerabilityRisk = assessment.vulnerabilities * 0.30;
+  const exposureRisk = assessment.exposedAssets * 0.24;
+  const controlRisk = (100 - assessment.securityControls) * 0.12;
+  const impactRisk = assessment.businessImpact * 0.16;
 
   return Math.round(
     clamp(
       assetRisk +
         vulnerabilityRisk +
         exposureRisk +
-        threatRisk +
         controlRisk +
         impactRisk,
       0,
@@ -255,12 +200,6 @@ function calculateRiskFactors(assessment) {
       icon: "🌍",
     },
     {
-      name: "Threat Activity",
-      value: assessment.threatActivity,
-      description: "Current threat activity level",
-      icon: "⚡",
-    },
-    {
       name: "Security Control Gap",
       value: 100 - assessment.securityControls,
       description: "Missing or weak security controls",
@@ -310,17 +249,32 @@ function App() {
   const savedState = useMemo(() => loadSavedState(), []);
 
   const [assessment, setAssessment] = useState(savedState.assessment);
+
   const [draftAssessment, setDraftAssessment] = useState(
     savedState.draftAssessment
   );
+
   const [budget, setBudget] = useState(savedState.budget);
+
   const [history, setHistory] = useState(savedState.history);
+
   const [profile, setProfile] = useState(savedState.profile);
+
   const [showWelcome, setShowWelcome] = useState(
     !savedState.welcomeSeen
   );
+
   const [demoMode, setDemoMode] = useState(false);
+
   const [statusMessage, setStatusMessage] = useState("");
+
+  /*
+   * Sample threat intelligence values.
+   * These were missing from the original App.jsx.
+   */
+  const activeThreats = demoMode ? 12 : 8;
+
+  const criticalThreats = demoMode ? 4 : 2;
 
   const riskScore = useMemo(
     () => calculateRiskScore(assessment),
@@ -360,24 +314,19 @@ function App() {
 
   const projectedRiskLevel = getRiskLevel(projectedScore);
 
-  const totalRecommendedInvestment = recommendations.reduce(
-    (total, recommendation) => total + recommendation.allocation,
-    0
-  );
+  const totalRecommendedInvestment =
+    recommendations.reduce(
+      (total, recommendation) =>
+        total + recommendation.allocation,
+      0
+    );
 
-  const criticalVulnerabilities = assessment.vulnerabilities;
+  const criticalVulnerabilities =
+    assessment.vulnerabilities;
 
   const topRecommendations = [...recommendations]
     .sort((a, b) => b.reduction - a.reduction)
     .slice(0, 3);
-
-  const activeThreats = threatData.filter(
-    (threat) => threat.status === "Active"
-  ).length;
-
-  const criticalThreats = threatData.filter(
-    (threat) => threat.severity === "Critical"
-  ).length;
 
   const scoreChartData = [
     {
@@ -387,15 +336,19 @@ function App() {
     },
   ];
 
-  const riskFactorChartData = riskFactors.map((factor) => ({
-    name: factor.name,
-    value: factor.value,
-  }));
+  const riskFactorChartData = riskFactors.map(
+    (factor) => ({
+      name: factor.name,
+      value: factor.value,
+    })
+  );
 
-  const budgetChartData = recommendations.map((recommendation) => ({
-    name: recommendation.name,
-    value: recommendation.allocation,
-  }));
+  const budgetChartData = recommendations.map(
+    (recommendation) => ({
+      name: recommendation.name,
+      value: recommendation.allocation,
+    })
+  );
 
   const trendChartData = useMemo(() => {
     return [...history]
@@ -403,10 +356,14 @@ function App() {
       .map((item, index) => ({
         name: `Assessment ${index + 1}`,
         date: item.date,
+
         current: Number.isFinite(Number(item.score))
           ? Number(item.score)
           : 0,
-        projected: Number.isFinite(Number(item.projectedScore))
+
+        projected: Number.isFinite(
+          Number(item.projectedScore)
+        )
           ? Number(item.projectedScore)
           : 0,
       }));
@@ -463,7 +420,9 @@ function App() {
     window.setTimeout(() => {
       document
         .getElementById("profile")
-        ?.scrollIntoView({ behavior: "smooth" });
+        ?.scrollIntoView({
+          behavior: "smooth",
+        });
     }, 100);
   }
 
@@ -473,19 +432,28 @@ function App() {
     window.setTimeout(() => {
       document
         .getElementById("dashboard")
-        ?.scrollIntoView({ behavior: "smooth" });
+        ?.scrollIntoView({
+          behavior: "smooth",
+        });
     }, 100);
   }
 
   function handleAnalyzeRisk(event) {
     event.preventDefault();
 
-    setAssessment({ ...draftAssessment });
-    showStatus("Risk assessment completed successfully.");
+    setAssessment({
+      ...draftAssessment,
+    });
+
+    showStatus(
+      "Risk assessment completed successfully."
+    );
 
     document
       .getElementById("dashboard")
-      ?.scrollIntoView({ behavior: "smooth" });
+      ?.scrollIntoView({
+        behavior: "smooth",
+      });
   }
 
   function saveCurrentAssessment() {
@@ -502,12 +470,16 @@ function App() {
       [historyItem, ...previousHistory].slice(0, 10)
     );
 
-    showStatus("Assessment saved to your history.");
+    showStatus(
+      "Assessment saved to your history."
+    );
   }
 
   function deleteHistoryItem(id) {
     setHistory((previousHistory) =>
-      previousHistory.filter((item) => item.id !== id)
+      previousHistory.filter(
+        (item) => item.id !== id
+      )
     );
 
     showStatus("Assessment deleted.");
@@ -520,24 +492,35 @@ function App() {
 
     if (confirmed) {
       setHistory([]);
-      showStatus("Assessment history cleared.");
+
+      showStatus(
+        "Assessment history cleared."
+      );
     }
   }
 
   function loadDemoMode() {
     const demoProfile = {
-      organizationName: "NexaTech Solutions",
-      industry: "Information Technology",
+      organizationName:
+        "NexaTech Solutions",
+
+      industry:
+        "Information Technology",
+
       employees: "350",
+
       organizationSize: "Medium",
     };
 
     const demoAssessment = {
       assets: 72,
+
       vulnerabilities: 68,
+
       exposedAssets: 58,
-      threatActivity: 76,
+
       securityControls: 42,
+
       businessImpact: 70,
     };
 
@@ -546,36 +529,62 @@ function App() {
     const demoHistory = [
       {
         id: 1001,
-        date: "15/08/2026, 10:15:00 am",
+
+        date:
+          "15/08/2026, 10:15:00 am",
+
         score: 76,
+
         level: "Critical",
+
         budget: 75000,
+
         projectedScore: 68,
       },
+
       {
         id: 1002,
-        date: "22/08/2026, 02:30:00 pm",
+
+        date:
+          "22/08/2026, 02:30:00 pm",
+
         score: 70,
+
         level: "High",
+
         budget: 100000,
+
         projectedScore: 60,
       },
+
       {
         id: 1003,
-        date: "30/08/2026, 11:45:00 am",
+
+        date:
+          "30/08/2026, 11:45:00 am",
+
         score: 64,
+
         level: "High",
+
         budget: 125000,
+
         projectedScore: 52,
       },
     ];
 
     setProfile(demoProfile);
+
     setAssessment(demoAssessment);
+
     setDraftAssessment(demoAssessment);
+
     setBudget(demoBudget);
+
     setHistory(demoHistory);
+
     setDemoMode(true);
+
     setShowWelcome(false);
 
     showStatus(
@@ -585,7 +594,9 @@ function App() {
     window.setTimeout(() => {
       document
         .getElementById("dashboard")
-        ?.scrollIntoView({ behavior: "smooth" });
+        ?.scrollIntoView({
+          behavior: "smooth",
+        });
     }, 150);
   }
 
@@ -598,19 +609,40 @@ function App() {
       return;
     }
 
-    const freshState = createDefaultState();
+    const freshState =
+      createDefaultState();
 
-    setAssessment(freshState.assessment);
-    setDraftAssessment(freshState.draftAssessment);
-    setBudget(freshState.budget);
-    setHistory(freshState.history);
-    setProfile(freshState.profile);
+    setAssessment(
+      freshState.assessment
+    );
+
+    setDraftAssessment(
+      freshState.draftAssessment
+    );
+
+    setBudget(
+      freshState.budget
+    );
+
+    setHistory(
+      freshState.history
+    );
+
+    setProfile(
+      freshState.profile
+    );
+
     setDemoMode(false);
+
     setShowWelcome(true);
 
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(
+      STORAGE_KEY
+    );
 
-    showStatus("Application has been reset.");
+    showStatus(
+      "Application has been reset."
+    );
   }
 
   function scrollToSection(sectionId) {
@@ -618,14 +650,19 @@ function App() {
 
     document
       .getElementById(sectionId)
-      ?.scrollIntoView({ behavior: "smooth" });
+      ?.scrollIntoView({
+        behavior: "smooth",
+      });
   }
 
   function generatePDFReport() {
     const pdf = new jsPDF();
 
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
+    const pageWidth =
+      pdf.internal.pageSize.getWidth();
+
+    const pageHeight =
+      pdf.internal.pageSize.getHeight();
 
     const reportId = `CNX-${Date.now()
       .toString()
@@ -640,17 +677,33 @@ function App() {
       style = "normal",
       maxWidth = pageWidth - 40
     ) {
-      pdf.setFont("helvetica", style);
-      pdf.setFontSize(size);
-
-      const lines = pdf.splitTextToSize(
-        String(text),
-        maxWidth
+      pdf.setFont(
+        "helvetica",
+        style
       );
 
-      pdf.text(lines, x, y);
+      pdf.setFontSize(size);
 
-      y += lines.length * (size * 0.55) + 5;
+      const lines =
+        pdf.splitTextToSize(
+          String(text),
+          maxWidth
+        );
+
+      checkPageSpace(
+        lines.length * (size * 0.55) + 8
+      );
+
+      pdf.text(
+        lines,
+        x,
+        y
+      );
+
+      y +=
+        lines.length *
+          (size * 0.55) +
+        5;
     }
 
     function addSectionTitle(title) {
@@ -658,19 +711,43 @@ function App() {
 
       y += 5;
 
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(14);
-      pdf.setTextColor(30, 100, 130);
-      pdf.text(title, 20, y);
+      pdf.setFont(
+        "helvetica",
+        "bold"
+      );
 
-      pdf.setTextColor(0, 0, 0);
+      pdf.setFontSize(14);
+
+      pdf.setTextColor(
+        30,
+        100,
+        130
+      );
+
+      pdf.text(
+        title,
+        20,
+        y
+      );
+
+      pdf.setTextColor(
+        0,
+        0,
+        0
+      );
 
       y += 10;
     }
 
-    function checkPageSpace(requiredSpace = 25) {
-      if (y + requiredSpace > pageHeight - 25) {
+    function checkPageSpace(
+      requiredSpace = 25
+    ) {
+      if (
+        y + requiredSpace >
+        pageHeight - 25
+      ) {
         pdf.addPage();
+
         y = 22;
       }
     }
@@ -683,7 +760,12 @@ function App() {
       width,
       height = 28
     ) {
-      pdf.setFillColor(245, 248, 252);
+      pdf.setFillColor(
+        245,
+        248,
+        252
+      );
+
       pdf.roundedRect(
         x,
         boxY,
@@ -694,41 +776,103 @@ function App() {
         "F"
       );
 
-      pdf.setFont("helvetica", "bold");
+      pdf.setFont(
+        "helvetica",
+        "bold"
+      );
+
       pdf.setFontSize(8);
-      pdf.setTextColor(90, 105, 125);
-      pdf.text(label, x + 5, boxY + 8);
+
+      pdf.setTextColor(
+        90,
+        105,
+        125
+      );
+
+      pdf.text(
+        label,
+        x + 5,
+        boxY + 8
+      );
 
       pdf.setFontSize(15);
-      pdf.setTextColor(20, 35, 55);
-      pdf.text(String(value), x + 5, boxY + 20);
 
-      pdf.setTextColor(0, 0, 0);
+      pdf.setTextColor(
+        20,
+        35,
+        55
+      );
+
+      pdf.text(
+        String(value),
+        x + 5,
+        boxY + 20
+      );
+
+      pdf.setTextColor(
+        0,
+        0,
+        0
+      );
     }
 
     // Header
-    pdf.setFillColor(7, 17, 31);
-    pdf.rect(0, 0, pageWidth, 48, "F");
+    pdf.setFillColor(
+      7,
+      17,
+      31
+    );
 
-    pdf.setTextColor(255, 255, 255);
-    pdf.setFont("helvetica", "bold");
+    pdf.rect(
+      0,
+      0,
+      pageWidth,
+      48,
+      "F"
+    );
+
+    pdf.setTextColor(
+      255,
+      255,
+      255
+    );
+
+    pdf.setFont(
+      "helvetica",
+      "bold"
+    );
+
     pdf.setFontSize(25);
-    pdf.text("CyberNexa", 20, 23);
 
-    pdf.setFont("helvetica", "normal");
+    pdf.text(
+      "CyberNexa",
+      20,
+      23
+    );
+
+    pdf.setFont(
+      "helvetica",
+      "normal"
+    );
+
     pdf.setFontSize(10);
+
     pdf.text(
       "CYBER RISK INTELLIGENCE & INVESTMENT OPTIMIZATION",
       20,
       34
     );
 
-    pdf.setTextColor(0, 0, 0);
+    pdf.setTextColor(
+      0,
+      0,
+      0
+    );
 
     y = 62;
 
     addText(
-      `Security Assessment Report`,
+      "Security Assessment Report",
       20,
       18,
       "bold"
@@ -737,23 +881,26 @@ function App() {
     addText(
       `Report ID: ${reportId}`,
       20,
-      9,
-      "normal"
+      9
     );
 
     addText(
-      `Generated: ${new Date().toLocaleString("en-IN")}`,
+      `Generated: ${new Date().toLocaleString(
+        "en-IN"
+      )}`,
       20,
-      9,
-      "normal"
+      9
     );
 
     // Organization Profile
-    addSectionTitle("Organization Profile");
+    addSectionTitle(
+      "Organization Profile"
+    );
 
     addMetricBox(
       "ORGANIZATION",
-      profile.organizationName || "Not provided",
+      profile.organizationName ||
+        "Not provided",
       20,
       y,
       80
@@ -761,7 +908,8 @@ function App() {
 
     addMetricBox(
       "INDUSTRY",
-      profile.industry || "Not provided",
+      profile.industry ||
+        "Not provided",
       105,
       y,
       80
@@ -769,7 +917,8 @@ function App() {
 
     addMetricBox(
       "EMPLOYEES",
-      profile.employees || "N/A",
+      profile.employees ||
+        "N/A",
       20,
       y + 34,
       80
@@ -777,7 +926,8 @@ function App() {
 
     addMetricBox(
       "SIZE",
-      profile.organizationSize || "N/A",
+      profile.organizationSize ||
+        "N/A",
       105,
       y + 34,
       80
@@ -786,7 +936,9 @@ function App() {
     y += 75;
 
     // Executive Summary
-    addSectionTitle("Executive Summary");
+    addSectionTitle(
+      "Executive Summary"
+    );
 
     addMetricBox(
       "CURRENT RISK",
@@ -816,7 +968,9 @@ function App() {
 
     addMetricBox(
       "RECOMMENDED INVESTMENT",
-      formatMoney(totalRecommendedInvestment),
+      formatMoney(
+        totalRecommendedInvestment
+      ),
       20,
       y,
       80
@@ -835,19 +989,28 @@ function App() {
     addText(
       "CyberNexa recommends prioritizing the highest-impact security investments based on the organization's current risk profile.",
       20,
-      10,
-      "normal"
+      10
     );
 
     // Risk chart
-    addSectionTitle("Risk Score Comparison");
+    addSectionTitle(
+      "Risk Score Comparison"
+    );
 
     const chartX = 30;
+
     const chartY = y;
+
     const chartWidth = 150;
+
     const chartHeight = 55;
 
-    pdf.setDrawColor(220, 225, 232);
+    pdf.setDrawColor(
+      220,
+      225,
+      232
+    );
+
     pdf.rect(
       chartX,
       chartY,
@@ -855,33 +1018,58 @@ function App() {
       chartHeight
     );
 
-    pdf.setFillColor(255, 180, 92);
+    pdf.setFillColor(
+      255,
+      180,
+      92
+    );
+
     const currentHeight =
-      (riskScore / 100) * 42;
+      (riskScore / 100) *
+      42;
 
     pdf.rect(
       chartX + 35,
-      chartY + 48 - currentHeight,
+      chartY +
+        48 -
+        currentHeight,
       25,
       currentHeight,
       "F"
     );
 
-    pdf.setFillColor(92, 225, 230);
+    pdf.setFillColor(
+      92,
+      225,
+      230
+    );
+
     const projectedHeight =
-      (projectedScore / 100) * 42;
+      (projectedScore / 100) *
+      42;
 
     pdf.rect(
       chartX + 90,
-      chartY + 48 - projectedHeight,
+      chartY +
+        48 -
+        projectedHeight,
       25,
       projectedHeight,
       "F"
     );
 
-    pdf.setFont("helvetica", "normal");
+    pdf.setFont(
+      "helvetica",
+      "normal"
+    );
+
     pdf.setFontSize(8);
-    pdf.setTextColor(80, 90, 105);
+
+    pdf.setTextColor(
+      80,
+      90,
+      105
+    );
 
     pdf.text(
       "Current",
@@ -898,118 +1086,210 @@ function App() {
     pdf.text(
       `${riskScore}`,
       chartX + 42,
-      chartY + 43 - currentHeight
+      chartY +
+        43 -
+        currentHeight
     );
 
     pdf.text(
       `${projectedScore}`,
       chartX + 97,
-      chartY + 43 - projectedHeight
+      chartY +
+        43 -
+        projectedHeight
     );
 
     y += 85;
 
     // Assessment
-    addSectionTitle("Organization Assessment");
+    addSectionTitle(
+      "Organization Assessment"
+    );
 
     const assessmentRows = [
-      ["Digital Assets", assessment.assets],
+      [
+        "Digital Assets",
+        assessment.assets,
+      ],
+
       [
         "Critical Vulnerabilities",
         assessment.vulnerabilities,
       ],
-      ["Exposed Assets", assessment.exposedAssets],
-      ["Threat Activity", assessment.threatActivity],
+
+      [
+        "Exposed Assets",
+        assessment.exposedAssets,
+      ],
+
       [
         "Security Controls",
         assessment.securityControls,
       ],
-      ["Business Impact", assessment.businessImpact],
+
+      [
+        "Business Impact",
+        assessment.businessImpact,
+      ],
     ];
 
-    assessmentRows.forEach(([label, value]) => {
-      checkPageSpace();
+    assessmentRows.forEach(
+      ([label, value]) => {
+        checkPageSpace();
 
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(10);
-      pdf.text(`${label}`, 20, y);
-      pdf.text(`${value}/100`, 155, y);
+        pdf.setFont(
+          "helvetica",
+          "normal"
+        );
 
-      pdf.setDrawColor(225, 230, 236);
-      pdf.line(20, y + 3, 180, y + 3);
+        pdf.setFontSize(10);
 
-      y += 9;
-    });
+        pdf.text(
+          `${label}`,
+          20,
+          y
+        );
+
+        pdf.text(
+          `${value}/100`,
+          155,
+          y
+        );
+
+        pdf.setDrawColor(
+          225,
+          230,
+          236
+        );
+
+        pdf.line(
+          20,
+          y + 3,
+          180,
+          y + 3
+        );
+
+        y += 9;
+      }
+    );
 
     // Risk factors
-    addSectionTitle("Risk Factor Analysis");
+    addSectionTitle(
+      "Risk Factor Analysis"
+    );
 
-    riskFactors.forEach((factor) => {
-      checkPageSpace(24);
+    riskFactors.forEach(
+      (factor) => {
+        checkPageSpace(24);
 
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(10);
-      pdf.text(
-        `${factor.name}: ${factor.value}%`,
-        20,
-        y
-      );
+        pdf.setFont(
+          "helvetica",
+          "bold"
+        );
 
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(8);
-      pdf.setTextColor(100, 110, 125);
+        pdf.setFontSize(10);
 
-      const descriptionLines = pdf.splitTextToSize(
-        factor.description,
-        155
-      );
+        pdf.text(
+          `${factor.name}: ${factor.value}%`,
+          20,
+          y
+        );
 
-      pdf.text(descriptionLines, 25, y + 6);
+        pdf.setFont(
+          "helvetica",
+          "normal"
+        );
 
-      pdf.setTextColor(0, 0, 0);
+        pdf.setFontSize(8);
 
-      y += descriptionLines.length * 4 + 10;
-    });
+        pdf.setTextColor(
+          100,
+          110,
+          125
+        );
+
+        const descriptionLines =
+          pdf.splitTextToSize(
+            factor.description,
+            155
+          );
+
+        pdf.text(
+          descriptionLines,
+          25,
+          y + 6
+        );
+
+        pdf.setTextColor(
+          0,
+          0,
+          0
+        );
+
+        y +=
+          descriptionLines.length *
+            4 +
+          10;
+      }
+    );
 
     // Investment allocation
-    addSectionTitle("Recommended Security Investments");
+    addSectionTitle(
+      "Recommended Security Investments"
+    );
 
-    recommendations.forEach((recommendation) => {
-      checkPageSpace(32);
+    recommendations.forEach(
+      (recommendation) => {
+        checkPageSpace(32);
 
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(10);
-      pdf.text(
-        recommendation.name,
-        20,
-        y
-      );
+        pdf.setFont(
+          "helvetica",
+          "bold"
+        );
 
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(9);
+        pdf.setFontSize(10);
 
-      pdf.text(
-        `Allocation: ${formatMoney(
-          recommendation.allocation
-        )}`,
-        25,
-        y + 7
-      );
+        pdf.text(
+          recommendation.name,
+          20,
+          y
+        );
 
-      pdf.text(
-        `Estimated risk reduction: ${recommendation.reduction}%`,
-        25,
-        y + 14
-      );
+        pdf.setFont(
+          "helvetica",
+          "normal"
+        );
 
-      y += 24;
-    });
+        pdf.setFontSize(9);
+
+        pdf.text(
+          `Allocation: ${formatMoney(
+            recommendation.allocation
+          )}`,
+          25,
+          y + 7
+        );
+
+        pdf.text(
+          `Estimated risk reduction: ${recommendation.reduction}%`,
+          25,
+          y + 14
+        );
+
+        y += 24;
+      }
+    );
 
     // Priority recommendations
-    addSectionTitle("Priority Actions");
+    addSectionTitle(
+      "Priority Actions"
+    );
 
     topRecommendations.forEach(
-      (recommendation, index) => {
+      (
+        recommendation,
+        index
+      ) => {
         checkPageSpace(25);
 
         addText(
@@ -1028,23 +1308,36 @@ function App() {
     );
 
     // Business impact
-    addSectionTitle("Business Impact");
+    addSectionTitle(
+      "Business Impact"
+    );
 
     const impactPoints = [
       "Reduced potential financial loss from cyber incidents.",
+
       "Improved business continuity during security incidents.",
+
       "Greater customer trust and protection of sensitive information.",
+
       "Better prioritization of cybersecurity investments.",
     ];
 
-    impactPoints.forEach((point) => {
-      checkPageSpace();
+    impactPoints.forEach(
+      (point) => {
+        checkPageSpace();
 
-      addText(`• ${point}`, 20, 10);
-    });
+        addText(
+          `• ${point}`,
+          20,
+          10
+        );
+      }
+    );
 
     // Conclusion
-    addSectionTitle("Final Conclusion");
+    addSectionTitle(
+      "Final Conclusion"
+    );
 
     addText(
       `CyberNexa calculates a current risk score of ${riskScore}/100 and projects the score to ${projectedScore}/100 after applying the recommended investment strategy.`,
@@ -1064,14 +1357,33 @@ function App() {
 
     y += 10;
 
-    pdf.setDrawColor(180, 180, 180);
-    pdf.line(20, y, pageWidth - 20, y);
+    pdf.setDrawColor(
+      180,
+      180,
+      180
+    );
+
+    pdf.line(
+      20,
+      y,
+      pageWidth - 20,
+      y
+    );
 
     y += 9;
 
-    pdf.setFont("helvetica", "italic");
+    pdf.setFont(
+      "helvetica",
+      "italic"
+    );
+
     pdf.setFontSize(8);
-    pdf.setTextColor(100, 100, 100);
+
+    pdf.setTextColor(
+      100,
+      100,
+      100
+    );
 
     pdf.text(
       `CyberNexa Report ID: ${reportId}`,
@@ -1102,8 +1414,13 @@ function App() {
 
           <div className="welcome-card">
             <div className="welcome-logo">
-              <span className="logo-symbol large">C</span>
-              <span>CyberNexa</span>
+              <span className="logo-symbol large">
+                C
+              </span>
+
+              <span>
+                CyberNexa
+              </span>
             </div>
 
             <div className="welcome-badge">
@@ -1113,13 +1430,18 @@ function App() {
             <h1>
               Make smarter decisions
               <br />
-              about your <span>cybersecurity.</span>
+              about your{" "}
+              <span>
+                cybersecurity.
+              </span>
             </h1>
 
             <p>
-              Assess organizational cyber risk, optimize security
-              investments, monitor sample threat intelligence, and
-              understand the business impact — all from one platform.
+              Assess organizational cyber risk,
+              optimize security investments,
+              monitor sample threat intelligence,
+              and understand the business impact —
+              all from one platform.
             </p>
 
             <div className="welcome-actions">
@@ -1146,10 +1468,21 @@ function App() {
             </button>
 
             <div className="welcome-features">
-              <span>🛡️ Risk Assessment</span>
-              <span>💰 Budget Optimization</span>
-              <span>⚠️ Threat Intelligence</span>
-              <span>📄 PDF Reporting</span>
+              <span>
+                🛡️ Risk Assessment
+              </span>
+
+              <span>
+                💰 Budget Optimization
+              </span>
+
+              <span>
+                ⚠️ Threat Intelligence
+              </span>
+
+              <span>
+                📄 PDF Reporting
+              </span>
             </div>
           </div>
         </div>
@@ -1158,45 +1491,68 @@ function App() {
       <nav className="navbar">
         <button
           className="brand-button"
-          onClick={() => setShowWelcome(true)}
+          onClick={() =>
+            setShowWelcome(true)
+          }
           aria-label="Open CyberNexa welcome screen"
         >
           <div className="logo">
-            <span className="logo-symbol">C</span>
-            <span>CyberNexa</span>
+            <span className="logo-symbol">
+              C
+            </span>
+
+            <span>
+              CyberNexa
+            </span>
           </div>
         </button>
 
         <div className="nav-links">
-          <button onClick={() => scrollToSection("profile")}>
+          <button
+            onClick={() =>
+              scrollToSection("profile")
+            }
+          >
             Profile
           </button>
 
-          <button onClick={() => scrollToSection("optimizer")}>
+          <button
+            onClick={() =>
+              scrollToSection("optimizer")
+            }
+          >
             Optimizer
           </button>
 
-          <button onClick={() => scrollToSection("assessment")}>
+          <button
+            onClick={() =>
+              scrollToSection("assessment")
+            }
+          >
             Assessment
           </button>
 
-          <button onClick={() => scrollToSection("dashboard")}>
+          <button
+            onClick={() =>
+              scrollToSection("dashboard")
+            }
+          >
             Dashboard
           </button>
 
           <button
             onClick={() =>
-              scrollToSection("threat-intelligence")
+              scrollToSection("charts")
             }
           >
-            Threats
-          </button>
-
-          <button onClick={() => scrollToSection("charts")}>
             Analytics
           </button>
 
-          <button onClick={() => scrollToSection("history")}>
+          <button
+            onClick={() =>
+              scrollToSection("history")
+            }
+          >
             History
           </button>
 
@@ -1210,6 +1566,7 @@ function App() {
       </nav>
 
       <main>
+        {/* HERO */}
         <section className="hero">
           <div className="hero-content">
             <div className="hero-topline">
@@ -1227,13 +1584,17 @@ function App() {
             <h1>
               Make smarter decisions
               <br />
-              about your <span>cybersecurity.</span>
+              about your{" "}
+              <span>
+                cybersecurity.
+              </span>
             </h1>
 
             <p className="hero-description">
-              CyberNexa helps organizations assess cyber risk,
-              optimize security investments, understand threat
-              intelligence, and measure the business impact of
+              CyberNexa helps organizations assess
+              cyber risk, optimize security investments,
+              understand threat intelligence, and
+              measure the business impact of
               cybersecurity decisions.
             </p>
 
@@ -1241,93 +1602,126 @@ function App() {
               <button
                 className="primary-button"
                 onClick={() =>
-                  scrollToSection("assessment")
+                  scrollToSection(
+                    "assessment"
+                  )
                 }
               >
                 Start Risk Assessment
-              </button>
-
-              <button
-                className="secondary-button"
-                onClick={() =>
-                  scrollToSection("threat-intelligence")
-                }
-              >
-                View Threat Intelligence
               </button>
             </div>
 
             <div className="hero-mini-stats">
               <div>
-                <strong>{activeThreats}</strong>
-                <span>Active threats</span>
+                <strong>
+                  {activeThreats}
+                </strong>
+
+                <span>
+                  Active threats
+                </span>
               </div>
 
               <div>
-                <strong>{criticalThreats}</strong>
-                <span>Critical threats</span>
+                <strong>
+                  {criticalThreats}
+                </strong>
+
+                <span>
+                  Critical threats
+                </span>
               </div>
 
               <div>
-                <strong>{history.length}</strong>
-                <span>Saved assessments</span>
+                <strong>
+                  {history.length}
+                </strong>
+
+                <span>
+                  Saved assessments
+                </span>
               </div>
             </div>
           </div>
         </section>
 
+        {/* STATS */}
         <section className="stats-section">
           <div className="stat-card">
-            <div className="stat-icon">🛡️</div>
+            <div className="stat-icon">
+              🛡️
+            </div>
 
             <span className="stat-label">
               CURRENT RISK SCORE
             </span>
 
-            <strong>{riskScore}/100</strong>
+            <strong>
+              {riskScore}/100
+            </strong>
 
-            <small>{riskLevel.label} risk level</small>
+            <small>
+              {riskLevel.label} risk level
+            </small>
           </div>
 
           <div className="stat-card">
-            <div className="stat-icon">💰</div>
+            <div className="stat-icon">
+              💰
+            </div>
 
             <span className="stat-label">
               SECURITY BUDGET
             </span>
 
-            <strong>{formatMoney(budget)}</strong>
+            <strong>
+              {formatMoney(budget)}
+            </strong>
 
-            <small>Available investment budget</small>
+            <small>
+              Available investment budget
+            </small>
           </div>
 
           <div className="stat-card">
-            <div className="stat-icon">📉</div>
+            <div className="stat-icon">
+              📉
+            </div>
 
             <span className="stat-label">
               PROJECTED SCORE
             </span>
 
-            <strong>{projectedScore}/100</strong>
+            <strong>
+              {projectedScore}/100
+            </strong>
 
             <small>
-              {projectedRiskLevel.label} after investment
+              {projectedRiskLevel.label} after
+              investment
             </small>
           </div>
 
           <div className="stat-card">
-            <div className="stat-icon">⚠️</div>
+            <div className="stat-icon">
+              ⚠️
+            </div>
 
             <span className="stat-label">
               ACTIVE THREATS
             </span>
 
-            <strong>{activeThreats}</strong>
+            <strong>
+              {activeThreats}
+            </strong>
 
-            <small>Sample intelligence feed</small>
+            <small>
+              Sample intelligence feed
+            </small>
           </div>
         </section>
 
+        {/* EXECUTIVE SUMMARY */}
         <section
           className="executive-section"
           id="executive-summary"
@@ -1337,11 +1731,14 @@ function App() {
               EXECUTIVE SUMMARY
             </p>
 
-            <h2>Cybersecurity at a glance</h2>
+            <h2>
+              Cybersecurity at a glance
+            </h2>
 
             <p>
-              A quick executive view of your organization's current
-              security posture and highest-priority actions.
+              A quick executive view of your
+              organization's current security posture
+              and highest-priority actions.
             </p>
           </div>
 
@@ -1353,7 +1750,9 @@ function App() {
                     OVERALL RISK
                   </span>
 
-                  <h3>{riskScore}/100</h3>
+                  <h3>
+                    {riskScore}/100
+                  </h3>
                 </div>
 
                 <span
@@ -1373,7 +1772,9 @@ function App() {
               </div>
 
               <div className="executive-score-footer">
-                <span>Current</span>
+                <span>
+                  Current
+                </span>
 
                 <strong>
                   → {projectedScore}/100 projected
@@ -1382,10 +1783,14 @@ function App() {
             </div>
 
             <div className="executive-metric">
-              <span>💰</span>
+              <span>
+                💰
+              </span>
 
               <div>
-                <small>Recommended Investment</small>
+                <small>
+                  Recommended Investment
+                </small>
 
                 <strong>
                   {formatMoney(
@@ -1396,10 +1801,14 @@ function App() {
             </div>
 
             <div className="executive-metric">
-              <span>🐛</span>
+              <span>
+                🐛
+              </span>
 
               <div>
-                <small>Critical Vulnerabilities</small>
+                <small>
+                  Critical Vulnerabilities
+                </small>
 
                 <strong>
                   {criticalVulnerabilities}
@@ -1408,12 +1817,18 @@ function App() {
             </div>
 
             <div className="executive-metric">
-              <span>⚠️</span>
+              <span>
+                ⚠️
+              </span>
 
               <div>
-                <small>Active Threats</small>
+                <small>
+                  Active Threats
+                </small>
 
-                <strong>{activeThreats}</strong>
+                <strong>
+                  {activeThreats}
+                </strong>
               </div>
             </div>
           </div>
@@ -1425,13 +1840,17 @@ function App() {
                   TOP 3 RECOMMENDED ACTIONS
                 </span>
 
-                <h3>What should you do first?</h3>
+                <h3>
+                  What should you do first?
+                </h3>
               </div>
 
               <button
                 className="secondary-button"
                 onClick={() =>
-                  scrollToSection("optimizer")
+                  scrollToSection(
+                    "optimizer"
+                  )
                 }
               >
                 View Investment Plan
@@ -1440,31 +1859,46 @@ function App() {
 
             <div className="priority-list">
               {topRecommendations.map(
-                (recommendation, index) => (
+                (
+                  recommendation,
+                  index
+                ) => (
                   <div
                     className="priority-item"
-                    key={recommendation.id}
+                    key={
+                      recommendation.id
+                    }
                   >
                     <div className="priority-number">
                       0{index + 1}
                     </div>
 
                     <div className="priority-icon">
-                      {recommendation.icon}
+                      {
+                        recommendation.icon
+                      }
                     </div>
 
                     <div className="priority-content">
                       <strong>
-                        {recommendation.name}
+                        {
+                          recommendation.name
+                        }
                       </strong>
 
                       <span>
-                        {recommendation.description}
+                        {
+                          recommendation.description
+                        }
                       </span>
                     </div>
 
                     <div className="priority-reduction">
-                      -{recommendation.reduction}%
+                      -
+                      {
+                        recommendation.reduction
+                      }
+                      %
                     </div>
                   </div>
                 )
@@ -1473,17 +1907,24 @@ function App() {
           </div>
         </section>
 
-        <section className="profile-section" id="profile">
+        {/* PROFILE */}
+        <section
+          className="profile-section"
+          id="profile"
+        >
           <div className="section-heading">
             <p className="eyebrow">
               ORGANIZATION PROFILE
             </p>
 
-            <h2>Tell us about your organization</h2>
+            <h2>
+              Tell us about your organization
+            </h2>
 
             <p>
-              Save your organization details to personalize the
-              CyberNexa dashboard and security report.
+              Save your organization details to
+              personalize the CyberNexa dashboard
+              and security report.
             </p>
           </div>
 
@@ -1498,7 +1939,9 @@ function App() {
                   id="organizationName"
                   type="text"
                   placeholder="Example: ABC Technologies"
-                  value={profile.organizationName}
+                  value={
+                    profile.organizationName
+                  }
                   onChange={(event) =>
                     updateProfileField(
                       "organizationName",
@@ -1515,7 +1958,9 @@ function App() {
 
                 <select
                   id="industry"
-                  value={profile.industry}
+                  value={
+                    profile.industry
+                  }
                   onChange={(event) =>
                     updateProfileField(
                       "industry",
@@ -1555,7 +2000,9 @@ function App() {
                     Government
                   </option>
 
-                  <option value="Other">Other</option>
+                  <option value="Other">
+                    Other
+                  </option>
                 </select>
               </div>
 
@@ -1569,7 +2016,9 @@ function App() {
                   type="number"
                   min="1"
                   placeholder="Example: 250"
-                  value={profile.employees}
+                  value={
+                    profile.employees
+                  }
                   onChange={(event) =>
                     updateProfileField(
                       "employees",
@@ -1586,7 +2035,9 @@ function App() {
 
                 <select
                   id="organizationSize"
-                  value={profile.organizationSize}
+                  value={
+                    profile.organizationSize
+                  }
                   onChange={(event) =>
                     updateProfileField(
                       "organizationSize",
@@ -1633,7 +2084,9 @@ function App() {
 
               <div className="profile-summary-grid">
                 <div>
-                  <span>Industry</span>
+                  <span>
+                    Industry
+                  </span>
 
                   <strong>
                     {profile.industry ||
@@ -1642,7 +2095,9 @@ function App() {
                 </div>
 
                 <div>
-                  <span>Employees</span>
+                  <span>
+                    Employees
+                  </span>
 
                   <strong>
                     {profile.employees ||
@@ -1651,10 +2106,14 @@ function App() {
                 </div>
 
                 <div>
-                  <span>Organization size</span>
+                  <span>
+                    Organization size
+                  </span>
 
                   <strong>
-                    {profile.organizationSize}
+                    {
+                      profile.organizationSize
+                    }
                   </strong>
                 </div>
               </div>
@@ -1662,19 +2121,24 @@ function App() {
           </div>
         </section>
 
+        {/* OPTIMIZER */}
         <section
           className="optimizer-section"
           id="optimizer"
         >
           <div className="section-heading">
-            <p className="eyebrow">STEP 01</p>
+            <p className="eyebrow">
+              STEP 01
+            </p>
 
-            <h2>Optimize your security budget</h2>
+            <h2>
+              Optimize your security budget
+            </h2>
 
             <p>
-              Choose your available budget and CyberNexa will
-              recommend how to distribute it across important
-              security areas.
+              Choose your available budget and
+              CyberNexa will recommend how to distribute
+              it across important security areas.
             </p>
           </div>
 
@@ -1685,16 +2149,24 @@ function App() {
                   AVAILABLE BUDGET
                 </p>
 
-                <h3>{formatMoney(budget)}</h3>
+                <h3>
+                  {formatMoney(budget)}
+                </h3>
               </div>
 
               <div className="projected-score">
-                <span>PROJECTED RISK</span>
+                <span>
+                  PROJECTED RISK
+                </span>
 
-                <strong>{projectedScore}/100</strong>
+                <strong>
+                  {projectedScore}/100
+                </strong>
 
                 <small>
-                  {projectedRiskLevel.label}
+                  {
+                    projectedRiskLevel.label
+                  }
                 </small>
               </div>
             </div>
@@ -1708,39 +2180,58 @@ function App() {
               value={budget}
               onChange={(event) =>
                 setBudget(
-                  Number(event.target.value)
+                  Number(
+                    event.target.value
+                  )
                 )
               }
             />
 
             <div className="budget-range">
-              <span>₹10,000</span>
-              <span>₹5,00,000</span>
+              <span>
+                ₹10,000
+              </span>
+
+              <span>
+                ₹5,00,000
+              </span>
             </div>
 
             <div className="recommendations">
               {recommendations.map(
-                (recommendation) => (
+                (
+                  recommendation
+                ) => (
                   <div
                     className="recommendation-card"
-                    key={recommendation.id}
+                    key={
+                      recommendation.id
+                    }
                   >
                     <div className="recommendation-icon">
-                      {recommendation.icon}
+                      {
+                        recommendation.icon
+                      }
                     </div>
 
                     <div className="recommendation-content">
                       <div>
                         <span className="recommendation-priority">
-                          {recommendation.priority}
+                          {
+                            recommendation.priority
+                          }
                         </span>
 
                         <h3>
-                          {recommendation.name}
+                          {
+                            recommendation.name
+                          }
                         </h3>
 
                         <p>
-                          {recommendation.description}
+                          {
+                            recommendation.description
+                          }
                         </p>
                       </div>
 
@@ -1757,7 +2248,11 @@ function App() {
                       </span>
 
                       <strong>
-                        -{recommendation.reduction}%
+                        -
+                        {
+                          recommendation.reduction
+                        }
+                        %
                       </strong>
                     </div>
                   </div>
@@ -1767,24 +2262,31 @@ function App() {
           </div>
         </section>
 
+        {/* ASSESSMENT */}
         <section
           className="assessment-section"
           id="assessment"
         >
           <div className="section-heading">
-            <p className="eyebrow">STEP 02</p>
+            <p className="eyebrow">
+              STEP 02
+            </p>
 
-            <h2>Assess your organization</h2>
+            <h2>
+              Assess your organization
+            </h2>
 
             <p>
-              Enter approximate values to calculate your
-              organization's cyber risk score.
+              Enter approximate values to calculate
+              your organization's cyber risk score.
             </p>
           </div>
 
           <form
             className="assessment-form"
-            onSubmit={handleAnalyzeRisk}
+            onSubmit={
+              handleAnalyzeRisk
+            }
           >
             {[
               [
@@ -1792,42 +2294,53 @@ function App() {
                 "Digital assets",
                 "Number and importance of your digital assets.",
               ],
+
               [
                 "vulnerabilities",
                 "Critical vulnerabilities",
                 "Number of serious security weaknesses.",
               ],
+
               [
                 "exposedAssets",
                 "Exposed assets",
                 "Assets exposed to external networks.",
               ],
-              [
-                "threatActivity",
-                "Threat activity",
-                "Current level of suspicious activity.",
-              ],
+
               [
                 "securityControls",
                 "Security controls",
                 "Strength of your existing security controls.",
               ],
+
               [
                 "businessImpact",
                 "Business impact",
                 "Possible effect of a security incident.",
               ],
             ].map(
-              ([field, label, description]) => (
+              (
+                [
+                  field,
+                  label,
+                  description,
+                ]
+              ) => (
                 <div
                   className="form-group assessment-group"
                   key={field}
                 >
-                  <label htmlFor={field}>
+                  <label
+                    htmlFor={field}
+                  >
                     {label}
 
                     <span>
-                      {draftAssessment[field]}
+                      {
+                        draftAssessment[
+                          field
+                        ]
+                      }
                     </span>
                   </label>
 
@@ -1836,7 +2349,11 @@ function App() {
                     type="range"
                     min="0"
                     max="100"
-                    value={draftAssessment[field]}
+                    value={
+                      draftAssessment[
+                        field
+                      ]
+                    }
                     onChange={(event) =>
                       updateDraftField(
                         field,
@@ -1846,11 +2363,18 @@ function App() {
                   />
 
                   <div className="range-scale">
-                    <span>Low</span>
-                    <span>High</span>
+                    <span>
+                      Low
+                    </span>
+
+                    <span>
+                      High
+                    </span>
                   </div>
 
-                  <small>{description}</small>
+                  <small>
+                    {description}
+                  </small>
                 </div>
               )
             )}
@@ -1878,12 +2402,15 @@ function App() {
           </form>
         </section>
 
+        {/* DASHBOARD */}
         <section
           className="dashboard-section"
           id="dashboard"
         >
           <div className="section-heading">
-            <p className="eyebrow">LIVE DASHBOARD</p>
+            <p className="eyebrow">
+              LIVE DASHBOARD
+            </p>
 
             <h2>
               {profile.organizationName
@@ -1892,15 +2419,18 @@ function App() {
             </h2>
 
             <p>
-              Review your current risk score, contributing factors,
-              investment strategy and projected improvement.
+              Review your current risk score,
+              contributing factors, investment strategy
+              and projected improvement.
             </p>
           </div>
 
           <div className="dashboard-grid">
             <div className="dashboard-card risk-score-card">
               <div className="card-heading">
-                <span>Overall risk score</span>
+                <span>
+                  Overall risk score
+                </span>
 
                 <span
                   className={`risk-badge ${riskLevel.className}`}
@@ -1916,27 +2446,37 @@ function App() {
                 }}
               >
                 <div className="risk-circle-inner">
-                  <strong>{riskScore}</strong>
+                  <strong>
+                    {riskScore}
+                  </strong>
 
-                  <span>out of 100</span>
+                  <span>
+                    out of 100
+                  </span>
                 </div>
               </div>
 
               <p className="risk-description">
-                {riskLevel.description}
+                {
+                  riskLevel.description
+                }
               </p>
 
               <div className="dashboard-action-buttons">
                 <button
                   className="primary-button"
-                  onClick={saveCurrentAssessment}
+                  onClick={
+                    saveCurrentAssessment
+                  }
                 >
                   💾 Save Assessment
                 </button>
 
                 <button
                   className="secondary-button report-button"
-                  onClick={generatePDFReport}
+                  onClick={
+                    generatePDFReport
+                  }
                 >
                   📄 Download Report
                 </button>
@@ -1945,7 +2485,9 @@ function App() {
 
             <div className="dashboard-card">
               <div className="card-heading">
-                <span>Risk factors</span>
+                <span>
+                  Risk factors
+                </span>
 
                 <span className="card-heading-muted">
                   {riskFactors.length} indicators
@@ -1953,82 +2495,109 @@ function App() {
               </div>
 
               <div className="risk-factors">
-                {riskFactors.map((factor) => (
-                  <div
-                    className="risk-factor"
-                    key={factor.name}
-                  >
-                    <div className="risk-factor-header">
-                      <div className="risk-factor-title">
-                        <span className="risk-factor-icon">
-                          {factor.icon}
-                        </span>
+                {riskFactors.map(
+                  (factor) => (
+                    <div
+                      className="risk-factor"
+                      key={
+                        factor.name
+                      }
+                    >
+                      <div className="risk-factor-header">
+                        <div className="risk-factor-title">
+                          <span className="risk-factor-icon">
+                            {factor.icon}
+                          </span>
 
-                        <div>
-                          <strong>
-                            {factor.name}
-                          </strong>
+                          <div>
+                            <strong>
+                              {
+                                factor.name
+                              }
+                            </strong>
 
-                          <small>
-                            {factor.description}
-                          </small>
+                            <small>
+                              {
+                                factor.description
+                              }
+                            </small>
+                          </div>
                         </div>
+
+                        <span>
+                          {factor.value}%
+                        </span>
                       </div>
 
-                      <span>
-                        {factor.value}%
-                      </span>
+                      <div className="factor-bar">
+                        <div
+                          className="factor-bar-fill"
+                          style={{
+                            width: `${factor.value}%`,
+                          }}
+                        />
+                      </div>
                     </div>
-
-                    <div className="factor-bar">
-                      <div
-                        className="factor-bar-fill"
-                        style={{
-                          width: `${factor.value}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
+                  )
+                )}
               </div>
             </div>
           </div>
 
           <div className="dashboard-summary-row">
             <div className="dashboard-mini-card">
-              <span>Current Score</span>
+              <span>
+                Current Score
+              </span>
 
-              <strong>{riskScore}/100</strong>
-
-              <small>{riskLevel.label}</small>
-            </div>
-
-            <div className="dashboard-mini-card">
-              <span>Projected Score</span>
-
-              <strong>{projectedScore}/100</strong>
+              <strong>
+                {riskScore}/100
+              </strong>
 
               <small>
-                {projectedRiskLevel.label}
+                {riskLevel.label}
               </small>
             </div>
 
             <div className="dashboard-mini-card">
-              <span>Risk Improvement</span>
+              <span>
+                Projected Score
+              </span>
+
+              <strong>
+                {projectedScore}/100
+              </strong>
+
+              <small>
+                {
+                  projectedRiskLevel.label
+                }
+              </small>
+            </div>
+
+            <div className="dashboard-mini-card">
+              <span>
+                Risk Improvement
+              </span>
 
               <strong>
                 {Math.max(
-                  riskScore - projectedScore,
+                  riskScore -
+                    projectedScore,
                   0
                 )}
                 %
               </strong>
 
-              <small>Estimated improvement</small>
+              <small>
+                Estimated improvement
+              </small>
             </div>
 
             <div className="dashboard-mini-card">
-              <span>Recommended Investment</span>
+              <span>
+                Recommended Investment
+              </span>
 
               <strong>
                 {formatMoney(
@@ -2036,116 +2605,14 @@ function App() {
                 )}
               </strong>
 
-              <small>Optimized allocation</small>
+              <small>
+                Optimized allocation
+              </small>
             </div>
           </div>
         </section>
 
-        <section
-          className="threat-section"
-          id="threat-intelligence"
-        >
-          <div className="section-heading">
-            <div className="threat-heading-row">
-              <div>
-                <p className="eyebrow">
-                  THREAT INTELLIGENCE
-                </p>
-
-                <h2>Know what you're defending against</h2>
-
-                <p>
-                  Sample threat intelligence for the CyberNexa
-                  prototype. These entries are clearly labelled
-                  sample data and are not a live security feed.
-                </p>
-              </div>
-
-              <div className="sample-data-badge">
-                SAMPLE DATA
-              </div>
-            </div>
-          </div>
-
-          <div className="threat-overview">
-            <div>
-              <span>Active Threats</span>
-
-              <strong>{activeThreats}</strong>
-            </div>
-
-            <div>
-              <span>Critical</span>
-
-              <strong>{criticalThreats}</strong>
-            </div>
-
-            <div>
-              <span>Resolved</span>
-
-              <strong>
-                {
-                  threatData.filter(
-                    (threat) =>
-                      threat.status === "Resolved"
-                  ).length
-                }
-              </strong>
-            </div>
-
-            <div>
-              <span>Industries Monitored</span>
-
-              <strong>8+</strong>
-            </div>
-          </div>
-
-          <div className="threat-grid">
-            {threatData.map((threat) => (
-              <article
-                className="threat-card"
-                key={threat.id}
-              >
-                <div className="threat-card-top">
-                  <div className="threat-icon">
-                    {threat.icon}
-                  </div>
-
-                  <div className="threat-status-row">
-                    <span
-                      className={`severity-badge ${threat.severity.toLowerCase()}`}
-                    >
-                      {threat.severity}
-                    </span>
-
-                    <span
-                      className={`threat-status ${threat.status.toLowerCase()}`}
-                    >
-                      ● {threat.status}
-                    </span>
-                  </div>
-                </div>
-
-                <h3>{threat.name}</h3>
-
-                <div className="threat-detail">
-                  <span>Affected industries</span>
-
-                  <strong>
-                    {threat.industry}
-                  </strong>
-                </div>
-
-                <div className="threat-action">
-                  <span>Recommended action</span>
-
-                  <p>{threat.action}</p>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-
+        {/* ANALYTICS */}
         <section
           className="charts-section"
           id="charts"
@@ -2155,15 +2622,19 @@ function App() {
               VISUAL ANALYTICS
             </p>
 
-            <h2>Understand your security data</h2>
+            <h2>
+              Understand your security data
+            </h2>
 
             <p>
-              These charts are generated from your assessment
-              values and recommended investment plan.
+              These charts are generated from your
+              assessment values and recommended
+              investment plan.
             </p>
           </div>
 
           <div className="charts-grid">
+            {/* CURRENT VS PROJECTED */}
             <div className="chart-card">
               <div className="card-heading">
                 <span>
@@ -2176,7 +2647,11 @@ function App() {
                   width="100%"
                   height={300}
                 >
-                  <BarChart data={scoreChartData}>
+                  <BarChart
+                    data={
+                      scoreChartData
+                    }
+                  >
                     <CartesianGrid
                       strokeDasharray="3 3"
                       stroke="rgba(255,255,255,0.1)"
@@ -2188,17 +2663,23 @@ function App() {
                     />
 
                     <YAxis
-                      domain={[0, 100]}
+                      domain={[
+                        0,
+                        100,
+                      ]}
                       stroke="#8da0b8"
                     />
 
                     <Tooltip
                       contentStyle={{
-                        background: "#10233a",
+                        background:
+                          "#10233a",
                         border:
                           "1px solid rgba(255,255,255,0.15)",
-                        borderRadius: "10px",
-                        color: "#ffffff",
+                        borderRadius:
+                          "10px",
+                        color:
+                          "#ffffff",
                       }}
                     />
 
@@ -2208,28 +2689,41 @@ function App() {
                       dataKey="current"
                       name="Current score"
                       fill="#ffb45c"
-                      radius={[8, 8, 0, 0]}
+                      radius={[
+                        8,
+                        8,
+                        0,
+                        0,
+                      ]}
                     />
 
                     <Bar
                       dataKey="projected"
                       name="Projected score"
                       fill="#5ce1e6"
-                      radius={[8, 8, 0, 0]}
+                      radius={[
+                        8,
+                        8,
+                        0,
+                        0,
+                      ]}
                     />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
 
               <p className="chart-note">
-                Your projected score is based on the recommended
-                security investments.
+                Your projected score is based on the
+                recommended security investments.
               </p>
             </div>
 
+            {/* RISK FACTORS */}
             <div className="chart-card">
               <div className="card-heading">
-                <span>Risk-factor comparison</span>
+                <span>
+                  Risk-factor comparison
+                </span>
               </div>
 
               <div className="chart-wrapper">
@@ -2238,7 +2732,9 @@ function App() {
                   height={340}
                 >
                   <BarChart
-                    data={riskFactorChartData}
+                    data={
+                      riskFactorChartData
+                    }
                     layout="vertical"
                     margin={{
                       top: 5,
@@ -2254,7 +2750,10 @@ function App() {
 
                     <XAxis
                       type="number"
-                      domain={[0, 100]}
+                      domain={[
+                        0,
+                        100,
+                      ]}
                       stroke="#8da0b8"
                     />
 
@@ -2263,16 +2762,21 @@ function App() {
                       dataKey="name"
                       width={135}
                       stroke="#8da0b8"
-                      tick={{ fontSize: 11 }}
+                      tick={{
+                        fontSize: 11,
+                      }}
                     />
 
                     <Tooltip
                       contentStyle={{
-                        background: "#10233a",
+                        background:
+                          "#10233a",
                         border:
                           "1px solid rgba(255,255,255,0.15)",
-                        borderRadius: "10px",
-                        color: "#ffffff",
+                        borderRadius:
+                          "10px",
+                        color:
+                          "#ffffff",
                       }}
                     />
 
@@ -2280,18 +2784,24 @@ function App() {
                       dataKey="value"
                       name="Risk value"
                       fill="#5d7bff"
-                      radius={[0, 8, 8, 0]}
+                      radius={[
+                        0,
+                        8,
+                        8,
+                        0,
+                      ]}
                     />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
 
               <p className="chart-note">
-                Higher values indicate areas that need more
-                attention.
+                Higher values indicate areas that need
+                more attention.
               </p>
             </div>
 
+            {/* BUDGET */}
             <div className="chart-card chart-card-wide">
               <div className="card-heading">
                 <span>
@@ -2307,7 +2817,9 @@ function App() {
                   >
                     <PieChart>
                       <Pie
-                        data={budgetChartData}
+                        data={
+                          budgetChartData
+                        }
                         dataKey="value"
                         nameKey="name"
                         cx="50%"
@@ -2318,7 +2830,10 @@ function App() {
                         labelLine={false}
                       >
                         {budgetChartData.map(
-                          (entry, index) => (
+                          (
+                            entry,
+                            index
+                          ) => (
                             <Cell
                               key={`cell-${entry.name}`}
                               fill={
@@ -2333,15 +2848,22 @@ function App() {
                       </Pie>
 
                       <Tooltip
-                        formatter={(value) =>
-                          formatMoney(value)
+                        formatter={(
+                          value
+                        ) =>
+                          formatMoney(
+                            value
+                          )
                         }
                         contentStyle={{
-                          background: "#10233a",
+                          background:
+                            "#10233a",
                           border:
                             "1px solid rgba(255,255,255,0.15)",
-                          borderRadius: "10px",
-                          color: "#ffffff",
+                          borderRadius:
+                            "10px",
+                          color:
+                            "#ffffff",
                         }}
                       />
 
@@ -2356,15 +2878,22 @@ function App() {
                   </span>
 
                   <strong>
-                    {formatMoney(budget)}
+                    {formatMoney(
+                      budget
+                    )}
                   </strong>
 
                   <div className="allocation-list">
                     {recommendations.map(
-                      (recommendation, index) => (
+                      (
+                        recommendation,
+                        index
+                      ) => (
                         <div
                           className="allocation-item"
-                          key={recommendation.id}
+                          key={
+                            recommendation.id
+                          }
                         >
                           <span>
                             <i
@@ -2377,7 +2906,9 @@ function App() {
                               }}
                             />
 
-                            {recommendation.name}
+                            {
+                              recommendation.name
+                            }
                           </span>
 
                           <strong>
@@ -2393,36 +2924,46 @@ function App() {
               </div>
             </div>
 
+            {/* TREND */}
             <div className="chart-card chart-card-wide trend-chart-card">
               <div className="card-heading">
                 <div>
-                  <span>Risk trend history</span>
+                  <span>
+                    Risk trend history
+                  </span>
 
                   <small className="chart-heading-subtitle">
-                    Track how your organization's risk changes
-                    across saved assessments.
+                    Track how your organization's
+                    risk changes across saved
+                    assessments.
                   </small>
                 </div>
               </div>
 
-              {trendChartData.length < 2 ? (
+              {trendChartData.length <
+              2 ? (
                 <div className="trend-empty-state">
                   <div className="trend-empty-icon">
                     📈
                   </div>
 
-                  <h3>Build your risk trend</h3>
+                  <h3>
+                    Build your risk trend
+                  </h3>
 
                   <p>
-                    Save at least two assessments to see how your
-                    current and projected risk scores change over
-                    time.
+                    Save at least two
+                    assessments to see how your
+                    current and projected risk
+                    scores change over time.
                   </p>
 
                   <button
                     className="secondary-button"
                     onClick={() =>
-                      scrollToSection("dashboard")
+                      scrollToSection(
+                        "dashboard"
+                      )
                     }
                   >
                     Go to Dashboard
@@ -2436,7 +2977,9 @@ function App() {
                       height={360}
                     >
                       <LineChart
-                        data={trendChartData}
+                        data={
+                          trendChartData
+                        }
                         margin={{
                           top: 10,
                           right: 20,
@@ -2455,7 +2998,10 @@ function App() {
                         />
 
                         <YAxis
-                          domain={[0, 100]}
+                          domain={[
+                            0,
+                            100,
+                          ]}
                           stroke="#8da0b8"
                         />
 
@@ -2464,19 +3010,27 @@ function App() {
                             label,
                             payload
                           ) =>
-                            payload?.[0]?.payload?.date ||
+                            payload?.[0]
+                              ?.payload
+                              ?.date ||
                             label
                           }
-                          formatter={(value, name) => [
+                          formatter={(
+                            value,
+                            name
+                          ) => [
                             `${value}/100`,
                             name,
                           ]}
                           contentStyle={{
-                            background: "#10233a",
+                            background:
+                              "#10233a",
                             border:
                               "1px solid rgba(255,255,255,0.15)",
-                            borderRadius: "10px",
-                            color: "#ffffff",
+                            borderRadius:
+                              "10px",
+                            color:
+                              "#ffffff",
                           }}
                         />
 
@@ -2516,8 +3070,8 @@ function App() {
                   </div>
 
                   <p className="chart-note">
-                    Each point represents a saved CyberNexa
-                    assessment.
+                    Each point represents a saved
+                    CyberNexa assessment.
                   </p>
                 </>
               )}
@@ -2525,6 +3079,7 @@ function App() {
           </div>
         </section>
 
+        {/* HISTORY */}
         <section
           className="history-section"
           id="history"
@@ -2534,11 +3089,13 @@ function App() {
               ASSESSMENT HISTORY
             </p>
 
-            <h2>Your saved assessments</h2>
+            <h2>
+              Your saved assessments
+            </h2>
 
             <p>
-              Your assessment records are stored locally in this
-              browser.
+              Your assessment records are stored
+              locally in this browser.
             </p>
           </div>
 
@@ -2549,17 +3106,21 @@ function App() {
                   📋
                 </div>
 
-                <h3>No saved assessments yet</h3>
+                <h3>
+                  No saved assessments yet
+                </h3>
 
                 <p>
-                  Complete an assessment and click “Save
-                  Assessment” to see it here.
+                  Complete an assessment and click
+                  “Save Assessment” to see it here.
                 </p>
 
                 <button
                   className="secondary-button"
                   onClick={() =>
-                    scrollToSection("assessment")
+                    scrollToSection(
+                      "assessment"
+                    )
                   }
                 >
                   Create Assessment
@@ -2569,72 +3130,85 @@ function App() {
               <>
                 <div className="history-header">
                   <span>
-                    {history.length} saved assessment
-                    {history.length === 1 ? "" : "s"}
+                    {history.length} saved
+                    assessment
+                    {history.length === 1
+                      ? ""
+                      : "s"}
                   </span>
 
                   <button
                     className="danger-button"
-                    onClick={clearHistory}
+                    onClick={
+                      clearHistory
+                    }
                   >
                     Clear History
                   </button>
                 </div>
 
                 <div className="history-list">
-                  {history.map((item) => (
-                    <div
-                      className="history-item"
-                      key={item.id}
-                    >
-                      <div className="history-main">
-                        <div className="history-title">
-                          <strong>
-                            {item.level} Risk
-                          </strong>
+                  {history.map(
+                    (item) => (
+                      <div
+                        className="history-item"
+                        key={item.id}
+                      >
+                        <div className="history-main">
+                          <div className="history-title">
+                            <strong>
+                              {item.level} Risk
+                            </strong>
 
-                          <span>
-                            {item.date}
-                          </span>
+                            <span>
+                              {item.date}
+                            </span>
+                          </div>
+
+                          <div className="history-score">
+                            <strong>
+                              {item.score}/100
+                            </strong>
+
+                            <span>
+                              Projected:{" "}
+                              {
+                                item.projectedScore
+                              }
+                              /100
+                            </span>
+                          </div>
                         </div>
 
-                        <div className="history-score">
-                          <strong>
-                            {item.score}/100
-                          </strong>
-
+                        <div className="history-meta">
                           <span>
-                            Projected:{" "}
-                            {item.projectedScore}/100
+                            Budget:{" "}
+                            {formatMoney(
+                              item.budget
+                            )}
                           </span>
+
+                          <button
+                            className="delete-button"
+                            onClick={() =>
+                              deleteHistoryItem(
+                                item.id
+                              )
+                            }
+                          >
+                            Delete
+                          </button>
                         </div>
                       </div>
-
-                      <div className="history-meta">
-                        <span>
-                          Budget:{" "}
-                          {formatMoney(item.budget)}
-                        </span>
-
-                        <button
-                          className="delete-button"
-                          onClick={() =>
-                            deleteHistoryItem(
-                              item.id
-                            )
-                          }
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  )}
                 </div>
               </>
             )}
           </div>
         </section>
 
+        {/* BUSINESS IMPACT */}
         <section
           className="impact-section"
           id="impact"
@@ -2649,29 +3223,37 @@ function App() {
             </h2>
 
             <p>
-              Security investment protects business continuity,
-              customer trust, and financial performance.
+              Security investment protects business
+              continuity, customer trust, and financial
+              performance.
             </p>
           </div>
 
           <div className="impact-grid">
             <div className="impact-card">
-              <span className="impact-icon">💰</span>
+              <span className="impact-icon">
+                💰
+              </span>
 
               <span className="impact-number">
                 01
               </span>
 
-              <h3>Reduced financial loss</h3>
+              <h3>
+                Reduced financial loss
+              </h3>
 
               <p>
-                Stronger security controls can reduce the potential
-                cost of incidents and operational disruption.
+                Stronger security controls can reduce
+                the potential cost of incidents and
+                operational disruption.
               </p>
             </div>
 
             <div className="impact-card">
-              <span className="impact-icon">🔄</span>
+              <span className="impact-icon">
+                🔄
+              </span>
 
               <span className="impact-number">
                 02
@@ -2682,29 +3264,36 @@ function App() {
               </h3>
 
               <p>
-                Better preparation helps organizations continue
-                operating during cyber incidents.
+                Better preparation helps organizations
+                continue operating during cyber
+                incidents.
               </p>
             </div>
 
             <div className="impact-card">
-              <span className="impact-icon">🤝</span>
+              <span className="impact-icon">
+                🤝
+              </span>
 
               <span className="impact-number">
                 03
               </span>
 
-              <h3>Greater customer trust</h3>
+              <h3>
+                Greater customer trust
+              </h3>
 
               <p>
-                Responsible security investment supports customer
-                confidence and protects sensitive information.
+                Responsible security investment
+                supports customer confidence and
+                protects sensitive information.
               </p>
             </div>
           </div>
         </section>
       </main>
 
+      {/* FOOTER */}
       <footer className="footer">
         <div>
           <div className="logo">
@@ -2712,37 +3301,38 @@ function App() {
               C
             </span>
 
-            <span>CyberNexa</span>
+            <span>
+              CyberNexa
+            </span>
           </div>
 
           <p>
-            Cyber risk intelligence and security investment
-            optimization.
+            Cyber risk intelligence and security
+            investment optimization.
           </p>
 
           <span className="footer-sample-note">
-            Prototype • Frontend-only • Sample threat intelligence
+            Prototype • Frontend-only • Sample threat
+            intelligence
           </span>
         </div>
 
         <div className="footer-actions">
           <button
             onClick={() =>
-              scrollToSection("executive-summary")
+              scrollToSection(
+                "executive-summary"
+              )
             }
           >
             Executive Summary
           </button>
 
           <button
-            onClick={() =>
-              scrollToSection("threat-intelligence")
+            onClick={
+              resetApplication
             }
           >
-            Threat Intelligence
-          </button>
-
-          <button onClick={resetApplication}>
             Reset Application
           </button>
         </div>
@@ -2753,7 +3343,9 @@ function App() {
           className="status-message"
           role="status"
         >
-          <span className="status-dot">✓</span>
+          <span className="status-dot">
+            ✓
+          </span>
 
           {statusMessage}
         </div>
