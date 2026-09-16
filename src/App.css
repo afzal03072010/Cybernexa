@@ -1,11 +1,60 @@
 @import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap");
 
 :root {
+  --page-bg: #07111f;
+  --page-bg-radial-1: rgba(16, 41, 67, 0.88);
+  --page-bg-radial-2: rgba(13, 35, 59, 0.8);
+  --page-bg-overlay: #07111f;
+  --surface: rgba(15, 31, 50, 0.74);
+  --surface-strong: rgba(11, 27, 45, 0.92);
+  --surface-soft: rgba(255, 255, 255, 0.08);
+  --surface-soft-strong: rgba(255, 255, 255, 0.12);
+  --navbar-bg: rgba(7, 17, 31, 0.9);
+  --border: rgba(255, 255, 255, 0.09);
+  --text: #e8eef7;
+  --text-soft: #9eafc5;
+  --text-muted: #71849d;
+  --heading: #ffffff;
+  --accent: #5ce1e6;
+  --accent-soft: rgba(92, 225, 230, 0.08);
+  --accent-strong: #8cf0f2;
+  --accent-contrast: #07111f;
+  --success: #6ce6a5;
+  --success-soft: rgba(108, 230, 165, 0.1);
+  --warning: #ffb45c;
+  --warning-soft: rgba(255, 180, 92, 0.07);
+  --shadow: rgba(0, 0, 0, 0.12);
   font-family: "DM Sans", sans-serif;
-  color: #e8eef7;
-  background: #07111f;
+  color: var(--text);
+  background: var(--page-bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+}
+
+:root[data-theme="sunset"] {
+  --page-bg: #fff6ef;
+  --page-bg-radial-1: rgba(255, 161, 102, 0.2);
+  --page-bg-radial-2: rgba(255, 107, 133, 0.14);
+  --page-bg-overlay: #fffaf7;
+  --surface: rgba(255, 255, 255, 0.9);
+  --surface-strong: rgba(255, 249, 246, 0.98);
+  --surface-soft: rgba(61, 37, 29, 0.05);
+  --surface-soft-strong: rgba(61, 37, 29, 0.1);
+  --navbar-bg: rgba(255, 255, 255, 0.8);
+  --border: rgba(82, 52, 40, 0.09);
+  --text: #312522;
+  --text-soft: #634f48;
+  --text-muted: #7d665f;
+  --heading: #251b1a;
+  --accent: #eb6c4d;
+  --accent-soft: rgba(235, 108, 77, 0.12);
+  --accent-strong: #d95a3f;
+  --accent-contrast: #fff8f4;
+  --success: #3aa07d;
+  --success-soft: rgba(58, 160, 125, 0.12);
+  --warning: #de8d2a;
+  --warning-soft: rgba(222, 141, 42, 0.12);
+  --shadow: rgba(81, 52, 43, 0.08);
 }
 
 * {
@@ -19,18 +68,52 @@ html {
 body {
   margin: 0;
   min-width: 320px;
+  color: var(--text);
   background:
     radial-gradient(
       circle at 15% 10%,
-      #102943 0%,
+      var(--page-bg-radial-1) 0%,
       transparent 32%
     ),
     radial-gradient(
       circle at 85% 20%,
-      #0d233b 0%,
+      var(--page-bg-radial-2) 0%,
       transparent 30%
     ),
-    #07111f;
+    var(--page-bg-overlay);
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+:root[data-theme="sunset"] .welcome-screen {
+  background:
+    radial-gradient(
+      circle at 20% 20%,
+      rgba(235, 108, 77, 0.12),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 80% 70%,
+      rgba(255, 183, 117, 0.12),
+      transparent 32%
+    ),
+    #fff7f3;
+}
+
+:root[data-theme="sunset"] .welcome-card {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+:root[data-theme="sunset"] .welcome-card h1,
+:root[data-theme="sunset"] .welcome-card > p,
+:root[data-theme="sunset"] .welcome-features span,
+:root[data-theme="sunset"] .welcome-logo,
+:root[data-theme="sunset"] .welcome-card h1 span {
+  color: var(--heading);
+}
+
+:root[data-theme="sunset"] .welcome-card > p,
+:root[data-theme="sunset"] .welcome-features span {
+  color: var(--text-soft);
 }
 
 button,
@@ -103,9 +186,9 @@ select:focus-visible {
   width: min(850px, 100%);
   padding: 54px;
   text-align: center;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border);
   border-radius: 28px;
-  background: rgba(10, 25, 43, 0.94);
+  background: var(--surface-strong);
   box-shadow:
     0 40px 120px rgba(0, 0, 0, 0.45),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
@@ -250,8 +333,8 @@ select:focus-visible {
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(7, 17, 31, 0.9);
+  border-bottom: 1px solid var(--border);
+  background: var(--navbar-bg);
   backdrop-filter: blur(18px);
 }
 
@@ -268,7 +351,7 @@ select:focus-visible {
   font-family: "Space Grotesk", sans-serif;
   font-size: 22px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--heading);
 }
 
 .nav-links {
@@ -283,7 +366,7 @@ select:focus-visible {
 .footer-actions button {
   border: 0;
   background: transparent;
-  color: #9eafc5;
+  color: var(--text-soft);
   padding: 9px 10px;
   border-radius: 8px;
   transition: 0.2s ease;
@@ -291,13 +374,42 @@ select:focus-visible {
 
 .nav-links button:hover,
 .footer-actions button:hover {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.07);
+  color: var(--heading);
+  background: var(--surface-soft);
 }
 
 .nav-demo-button {
   border: 1px solid rgba(92, 225, 230, 0.2) !important;
-  color: #5ce1e6 !important;
+  color: var(--accent) !important;
+}
+
+.theme-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-soft);
+}
+
+.theme-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 11px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.theme-button.active {
+  background: var(--accent-soft);
+  color: var(--heading);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 /* =========================================================
@@ -356,13 +468,13 @@ section {
   font-size: clamp(42px, 7vw, 82px);
   line-height: 1.03;
   letter-spacing: -0.06em;
-  color: #ffffff;
+  color: var(--heading);
 }
 
 .hero-description {
   max-width: 720px;
   margin: 28px 0 0;
-  color: #9eafc5;
+  color: var(--text-soft);
   font-size: 18px;
   line-height: 1.8;
 }
@@ -387,23 +499,23 @@ section {
 
 .primary-button {
   border: 0;
-  background: #5ce1e6;
-  color: #07111f;
+  background: var(--accent);
+  color: var(--accent-contrast);
 }
 
 .primary-button:hover {
-  background: #8cf0f2;
+  background: var(--accent-strong);
   transform: translateY(-2px);
 }
 
 .secondary-button {
-  background: rgba(255, 255, 255, 0.07);
-  color: #e8eef7;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--surface-soft);
+  color: var(--text);
+  border: 1px solid var(--border);
 }
 
 .secondary-button:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--surface-soft-strong);
   transform: translateY(-1px);
 }
 
@@ -421,13 +533,13 @@ section {
 }
 
 .hero-mini-stats strong {
-  color: #ffffff;
+  color: var(--heading);
   font-family: "Space Grotesk", sans-serif;
   font-size: 25px;
 }
 
 .hero-mini-stats span {
-  color: #71849d;
+  color: var(--text-muted);
   font-size: 12px;
 }
 
@@ -446,11 +558,11 @@ section {
 .executive-score-card,
 .priority-actions,
 .document-upload-card {
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  background: rgba(15, 31, 50, 0.74);
+  border: 1px solid var(--border);
+  background: var(--surface);
   border-radius: 18px;
   box-shadow:
-    0 20px 80px rgba(0, 0, 0, 0.12);
+    0 20px 80px var(--shadow);
 }
 
 .stats-section {

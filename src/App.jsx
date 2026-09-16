@@ -24,6 +24,24 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
 ).toString();
 
 const STORAGE_KEY = "cybernexa-state-v4";
+const THEME_KEY = "cybernexa-theme";
+
+const themeOptions = [
+  { key: "dark", label: "Dark", icon: "🌙" },
+  { key: "sunset", label: "Sunset", icon: "🌅" },
+];
+
+function getDefaultTheme() {
+  if (typeof window === "undefined") {
+    return "dark";
+  }
+
+  const storedTheme = window.localStorage.getItem(THEME_KEY);
+
+  return themeOptions.some((option) => option.key === storedTheme)
+    ? storedTheme
+    : "dark";
+}
 
 /* =========================================================
    DEFAULT DATA
@@ -486,6 +504,8 @@ function App() {
   const [showWelcome, setShowWelcome] =
     useState(!savedState.welcomeSeen);
 
+  const [theme, setTheme] = useState(getDefaultTheme);
+
   const [demoMode, setDemoMode] =
     useState(false);
 
@@ -634,6 +654,12 @@ function App() {
     documentValues,
     showWelcome,
   ]);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.body.dataset.theme = theme;
+    localStorage.setItem(THEME_KEY, theme);
+  }, [theme]);
 
   /* =====================================================
      HELPERS
@@ -1707,7 +1733,7 @@ function App() {
   ===================================================== */
 
   return (
-    <div className="app">
+    <div className="app" data-theme={theme}>
 
       {/* =================================================
           WELCOME
@@ -1879,6 +1905,22 @@ function App() {
             🎬 Demo
           </button>
 
+        </div>
+
+        <div className="theme-switcher" aria-label="Theme selector">
+          {themeOptions.map((option) => (
+            <button
+              key={option.key}
+              type="button"
+              className={`theme-button ${theme === option.key ? "active" : ""}`}
+              onClick={() => setTheme(option.key)}
+              aria-pressed={theme === option.key}
+              title={`${option.label} mode`}
+            >
+              <span aria-hidden="true">{option.icon}</span>
+              <span>{option.label}</span>
+            </button>
+          ))}
         </div>
       </nav>
 
