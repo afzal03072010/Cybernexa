@@ -185,26 +185,21 @@ select:focus-visible {
   font-weight: 700;
 }
 
-.logo-symbol {
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  border-radius: 10px;
-  background: linear-gradient(
-    135deg,
-    #5ce1e6,
-    #5d7bff
-  );
-  color: #07111f;
-  font-weight: 800;
+.welcome-logo,
+.logo {
+  letter-spacing: -0.05em;
 }
 
-.logo-symbol.large {
-  width: 44px;
-  height: 44px;
-  border-radius: 13px;
-  font-size: 20px;
+.welcome-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .welcome-badge {
@@ -2147,47 +2142,102 @@ section {
 @media (max-width: 650px) {
   main,
   .footer {
-    width: min(100% - 28px, 1180px);
+    width: min(100% - 24px, 1180px);
   }
 
   .navbar {
     width: 100%;
-    padding: 16px 14px;
+    padding: 14px 12px;
+    gap: 10px;
+  }
+
+  .brand-button {
+    width: 100%;
+    text-align: left;
+  }
+
+  .logo {
+    font-size: 18px;
   }
 
   .nav-links {
     width: 100%;
     overflow-x: auto;
     flex-wrap: nowrap;
-    padding-bottom: 3px;
+    padding-bottom: 4px;
+    gap: 8px;
   }
 
   .nav-links button {
     flex-shrink: 0;
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  .theme-switcher {
+    width: 100%;
+    justify-content: space-between;
+    padding: 5px;
+  }
+
+  .theme-button {
+    flex: 1;
+    justify-content: center;
+    padding: 8px 6px;
+    font-size: 11px;
   }
 
   .hero {
     min-height: auto;
-    padding: 70px 0;
+    padding: 56px 0 40px;
   }
 
   .hero h1,
   .welcome-card h1 {
-    font-size: 44px;
+    font-size: 38px;
+    line-height: 1.08;
   }
 
   .hero-description {
-    font-size: 16px;
+    font-size: 15px;
+    line-height: 1.7;
+  }
+
+  .hero-actions,
+  .welcome-actions,
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .hero-actions button,
+  .welcome-actions button,
+  .form-actions button,
+  .welcome-primary,
+  .welcome-secondary,
+  .primary-button,
+  .secondary-button {
+    width: 100%;
   }
 
   .hero-mini-stats {
-    gap: 22px;
+    gap: 18px;
+    justify-content: space-between;
+  }
+
+  .hero-mini-stats div {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .hero-mini-stats strong {
+    font-size: 22px;
   }
 
   .stats-section,
   .profile-form,
   .executive-grid,
-  .dashboard-summary-row {
+  .dashboard-summary-row,
+  .workflow-layout {
     grid-template-columns: 1fr;
   }
 
@@ -2201,8 +2251,10 @@ section {
   .history-card,
   .chart-card,
   .profile-card,
-  .priority-actions {
-    padding: 22px;
+  .priority-actions,
+  .workflow-card,
+  .benchmark-card {
+    padding: 20px;
   }
 
   .budget-header,
@@ -2210,7 +2262,9 @@ section {
   .history-main,
   .history-meta,
   .footer,
-  .priority-heading {
+  .priority-heading,
+  .workflow-header,
+  .document-upload-intro {
     align-items: flex-start;
     flex-direction: column;
   }
@@ -2220,19 +2274,36 @@ section {
     text-align: left;
   }
 
-  .form-actions {
-    flex-direction: column;
-  }
-
-  .form-actions button {
-    width: 100%;
-  }
-
   .status-message {
     right: 14px;
     bottom: 14px;
     left: 14px;
     max-width: none;
+  }
+
+  .welcome-card {
+    padding: 32px 20px;
+  }
+
+  .welcome-actions {
+    margin-top: 24px;
+  }
+
+  .welcome-features {
+    gap: 8px;
+  }
+
+  .welcome-features span {
+    font-size: 11px;
+    padding: 7px 10px;
+  }
+
+  .profile-card {
+    padding: 18px;
+  }
+
+  .document-upload-card {
+    padding: 18px;
   }
 
   .risk-circle {

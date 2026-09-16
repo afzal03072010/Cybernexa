@@ -1802,10 +1802,6 @@ function App() {
           <div className="welcome-card">
 
             <div className="welcome-logo">
-              <span className="logo-symbol large">
-                C
-              </span>
-
               <span>
                 CyberNexa
               </span>
@@ -1894,10 +1890,6 @@ function App() {
           }
         >
           <div className="logo">
-            <span className="logo-symbol">
-              C
-            </span>
-
             <span>
               CyberNexa
             </span>
