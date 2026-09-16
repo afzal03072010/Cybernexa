@@ -28,7 +28,6 @@ const THEME_KEY = "cybernexa-theme";
 
 const themeOptions = [
   { key: "dark", label: "Dark", icon: "🌙" },
-  { key: "sunset", label: "Sunset", icon: "🌅" },
 ];
 
 function getDefaultTheme() {
@@ -588,6 +587,63 @@ function App() {
           b.reduction - a.reduction
       )
       .slice(0, 3);
+
+  const workflowSteps = useMemo(
+    () => [
+      {
+        id: "profile",
+        title: "Complete profile",
+        detail: "Add your organization details",
+        done:
+          Boolean(
+            profile.organizationName ||
+              profile.industry ||
+              profile.employees
+          ),
+      },
+      {
+        id: "documents",
+        title: "Upload assessment files",
+        detail: "Attach your PDF evidence",
+        done: Object.values(uploadedFiles).some(
+          Boolean
+        ),
+      },
+      {
+        id: "review",
+        title: "Review risk score",
+        detail: "Confirm scoring and findings",
+        done: riskScore > 0,
+      },
+      {
+        id: "plan",
+        title: "Approve investment plan",
+        detail: "Choose your budget allocation",
+        done: budget >= 10000,
+      },
+      {
+        id: "report",
+        title: "Generate report",
+        detail: "Export the final executive summary",
+        done: history.length > 0,
+      },
+    ],
+    [budget, history.length, profile, riskScore, uploadedFiles]
+  );
+
+  const completedWorkflowSteps =
+    workflowSteps.filter((step) => step.done)
+      .length;
+  const workflowProgress =
+    (completedWorkflowSteps /
+      workflowSteps.length) *
+    100;
+  const benchmarkScore = 48;
+  const benchmarkDelta = riskScore - benchmarkScore;
+  const benchmarkMessage =
+    benchmarkDelta <= 0
+      ? "You are performing better than the industry benchmark."
+      : "Your score is above the industry benchmark and needs attention.";
 
   const scoreChartData = [
     {
@@ -2307,6 +2363,72 @@ function App() {
 
           </div>
 
+        </section>
+
+        <section className="workflow-section">
+          <div className="workflow-layout">
+            <div className="workflow-card">
+              <div className="workflow-header">
+                <div>
+                  <span className="card-subtitle">
+                    NEXT STEPS
+                  </span>
+                  <h3>
+                    Guided action plan
+                  </h3>
+                </div>
+                <span className="workflow-progress">
+                  {completedWorkflowSteps}/{workflowSteps.length}
+                </span>
+              </div>
+
+              <div className="workflow-progress-bar">
+                <span
+                  style={{ width: `${workflowProgress}%` }}
+                />
+              </div>
+
+              <div className="workflow-list">
+                {workflowSteps.map((step) => (
+                  <div
+                    key={step.id}
+                    className={`workflow-item ${
+                      step.done ? "done" : ""
+                    }`}
+                  >
+                    <span className="workflow-check">
+                      {step.done ? "✓" : "○"}
+                    </span>
+                    <div>
+                      <strong>{step.title}</strong>
+                      <small>{step.detail}</small>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="benchmark-card">
+              <span className="card-subtitle">
+                INDUSTRY BENCHMARK
+              </span>
+              <h3>{benchmarkScore}/100</h3>
+              <p>{benchmarkMessage}</p>
+
+              <div className="benchmark-metric">
+                <span>Current score</span>
+                <strong>{riskScore}/100</strong>
+              </div>
+
+              <div className="benchmark-metric alt">
+                <span>Variance</span>
+                <strong>
+                  {benchmarkDelta > 0 ? "+" : ""}
+                  {benchmarkDelta}
+                </strong>
+              </div>
+            </div>
+          </div>
         </section>
 
         {/* =================================================
