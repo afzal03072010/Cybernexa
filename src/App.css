@@ -10,10 +10,10 @@
   --surface-soft: rgba(255, 255, 255, 0.08);
   --surface-soft-strong: rgba(255, 255, 255, 0.12);
   --navbar-bg: rgba(7, 17, 31, 0.9);
-  --border: rgba(255, 255, 255, 0.09);
+  --border: rgba(176, 214, 234, 0.16);
   --text: #e8eef7;
-  --text-soft: #9eafc5;
-  --text-muted: #71849d;
+  --text-soft: #b5c4d6;
+  --text-muted: #8ea2b9;
   --heading: #ffffff;
   --accent: #5ce1e6;
   --accent-soft: rgba(92, 225, 230, 0.08);
@@ -29,6 +29,8 @@
   background: var(--page-bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 * {
@@ -56,6 +58,13 @@ body {
     ),
     var(--page-bg-overlay);
   transition: background 0.25s ease, color 0.25s ease;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+  margin: 0;
+  text-align: left;
 }
 
 button,
@@ -435,7 +444,7 @@ select:focus-visible {
 ========================================================= */
 
 main {
-  width: min(1180px, calc(100% - 40px));
+  width: min(1240px, calc(100% - 64px));
   margin: 0 auto;
 }
 
