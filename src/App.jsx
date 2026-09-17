@@ -27,7 +27,11 @@ const STORAGE_KEY = "cybernexa-state-v4";
 const THEME_KEY = "cybernexa-theme";
 
 const themeOptions = [
-  { key: "dark", label: "Dark", icon: "🌙" },
+  { key: "dark", label: "Midnight", icon: "🌙", color: "#5ce1e6" },
+  { key: "ocean", label: "Ocean", icon: "🌊", color: "#4db8ff" },
+  { key: "forest", label: "Forest", icon: "🌿", color: "#72d572" },
+  { key: "sunset", label: "Sunset", icon: "🌅", color: "#ff9b71" },
+  { key: "contrast", label: "Contrast", icon: "◐", color: "#ffe45c" },
 ];
 
 function getDefaultTheme() {
@@ -1967,8 +1971,13 @@ function App() {
               aria-pressed={theme === option.key}
               title={`${option.label} mode`}
             >
+              <span
+                className="theme-swatch"
+                aria-hidden="true"
+                style={{ "--theme-color": option.color }}
+              />
               <span aria-hidden="true">{option.icon}</span>
-              <span>{option.label}</span>
+              <span className="theme-label">{option.label}</span>
             </button>
           ))}
         </div>
