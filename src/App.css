@@ -36,31 +36,6 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-:root[data-theme="ocean"] {
-  --page-bg: #061827;
-  --page-bg-radial-1: rgba(12, 72, 111, 0.9);
-  --page-bg-radial-2: rgba(10, 43, 87, 0.82);
-  --page-bg-overlay: #061827;
-  --surface: rgba(8, 35, 58, 0.82);
-  --surface-strong: rgba(5, 28, 48, 0.94);
-  --surface-soft: rgba(77, 184, 255, 0.11);
-  --surface-soft-strong: rgba(77, 184, 255, 0.18);
-  --navbar-bg: rgba(6, 24, 39, 0.92);
-  --border: rgba(139, 213, 255, 0.2);
-  --text: #e9f7ff;
-  --text-soft: #b9d8ea;
-  --text-muted: #91b4ca;
-  --accent: #4db8ff;
-  --accent-soft: rgba(77, 184, 255, 0.14);
-  --accent-strong: #9edcff;
-  --accent-contrast: #061827;
-  --success: #72e0bd;
-  --success-soft: rgba(114, 224, 189, 0.12);
-  --warning: #ffd166;
-  --warning-soft: rgba(255, 209, 102, 0.11);
-  --focus: #9edcff;
-}
-
 :root[data-theme="forest"] {
   --page-bg: #091b18;
   --page-bg-radial-1: rgba(22, 83, 64, 0.88);

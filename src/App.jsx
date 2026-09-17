@@ -28,7 +28,6 @@ const THEME_KEY = "cybernexa-theme";
 
 const themeOptions = [
   { key: "dark", label: "Midnight", icon: "🌙", color: "#5ce1e6" },
-  { key: "ocean", label: "Ocean", icon: "🌊", color: "#4db8ff" },
   { key: "forest", label: "Forest", icon: "🌿", color: "#72d572" },
   { key: "sunset", label: "Sunset", icon: "🌅", color: "#ff9b71" },
   { key: "contrast", label: "Contrast", icon: "◐", color: "#ffe45c" },
